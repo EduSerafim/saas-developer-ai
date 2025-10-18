@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
 // URL da API - será configurada via environment variable no Vercel
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || 'https://saas-developer-api.[seu-usuario].workers.dev';
 
 function App() {
   const [instruction, setInstruction] = useState('')

@@ -1,0 +1,15 @@
+name = "saas-developer-api"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Variáveis de ambiente (você vai configurar no dashboard)
+[vars]
+DEEPSEEK_API_KEY = "sua_chave_aqui"
+
+# Configuração das functions
+[functions]
+include = ["functions/**/*.js"]
+
+# Configurações de deploy
+[env.production]
+workers_dev = true
