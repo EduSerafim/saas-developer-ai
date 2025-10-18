@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 
-// URL da API - será configurada via environment variable no Vercel
 const API_URL = import.meta.env.VITE_API_URL || 'https://saas-developer-api.eadmms15.workers.dev'
 
 // Configurações de temas por linguagem
@@ -18,7 +17,7 @@ const LANGUAGE_THEMES = {
   kotlin: { primary: '#7F52FF', secondary: '#FFFFFF', name: 'Kotlin' }
 }
 
-// Linguagens disponíveis com ícones (usaremos emojis por enquanto)
+// Linguagens disponíveis
 const AVAILABLE_LANGUAGES = [
   { id: 'python', name: 'Python', icon: '🐍', popular: true },
   { id: 'javascript', name: 'JavaScript', icon: '⚡', popular: true },
@@ -33,7 +32,22 @@ const AVAILABLE_LANGUAGES = [
   { id: 'kotlin', name: 'Kotlin', icon: '🔶', popular: false }
 ]
 
-// Quick Templates para casos comuns
+// Frameworks por linguagem
+const FRAMEWORKS_BY_LANGUAGE = {
+  python: ['Django', 'Flask', 'FastAPI', 'Pyramid', 'Bottle', 'CherryPy', 'Nenhum'],
+  javascript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'Nuxt.js', 'Svelte', 'Nenhum'],
+  typescript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'Nuxt.js', 'NestJS', 'Nenhum'],
+  java: ['Spring', 'Spring Boot', 'Jakarta EE', 'Micronaut', 'Quarkus', 'Vert.x', 'Play', 'Nenhum'],
+  go: ['Gin', 'Echo', 'Fiber', 'Beego', 'Revel', 'Nenhum'],
+  rust: ['Actix', 'Rocket', 'Warp', 'Tide', 'Nenhum'],
+  php: ['Laravel', 'Symfony', 'CodeIgniter', 'CakePHP', 'Yii', 'Nenhum'],
+  csharp: ['.NET', 'ASP.NET', 'Blazor', 'Xamarin', 'Unity', 'Nenhum'],
+  ruby: ['Ruby on Rails', 'Sinatra', 'Hanami', 'Nenhum'],
+  swift: ['Vapor', 'Perfect', 'Kitura', 'Nenhum'],
+  kotlin: ['Spring', 'Ktor', 'Micronaut', 'Vert.x', 'Nenhum']
+}
+
+// Quick Templates
 const QUICK_TEMPLATES = [
   { id: 'crud', name: '📊 CRUD API', prompt: 'Crie uma API REST completa com operações CRUD' },
   { id: 'auth', name: '🔐 Sistema de Autenticação', prompt: 'Implemente um sistema de autenticação JWT' },
@@ -52,22 +66,16 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState('develop')
   const [apiStatus, setApiStatus] = useState('checking')
-  
-  // NOVOS ESTADOS PARA TEMAS E FEATURES
   const [darkMode, setDarkMode] = useState(true)
-  const [languageTheme, setLanguageTheme] = useState(LANGUAGE_THEMES.python)
   const [typingAnimation, setTypingAnimation] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
 
-  // Verificar status do backend
+  // Frameworks disponíveis para a linguagem atual
+  const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || []
+
   useEffect(() => {
     checkApiStatus()
   }, [])
-
-  // Atualizar tema quando linguagem mudar
-  useEffect(() => {
-    setLanguageTheme(LANGUAGE_THEMES[language] || LANGUAGE_THEMES.python)
-  }, [language])
 
   const checkApiStatus = async () => {
     try {
@@ -107,7 +115,7 @@ function App() {
         body: JSON.stringify({
           instruction: instruction.trim(),
           language,
-          framework: framework.trim() || null
+          framework: framework === 'Nenhum' ? null : framework
         })
       })
 
@@ -119,7 +127,6 @@ function App() {
       
       if (data.success) {
         if (typingAnimation) {
-          // Simular typing animation
           simulateTypingAnimation(data.result)
         } else {
           setResponse(data.result)
@@ -141,16 +148,10 @@ function App() {
       if (index < text.length) {
         setResponse(prev => prev + text.charAt(index))
         index++
-        
-        // Auto-scroll para baixo
-        const responseElement = document.querySelector('.response-section')
-        if (responseElement) {
-          responseElement.scrollIntoView({ behavior: 'smooth', block: 'end' })
-        }
       } else {
         clearInterval(timer)
       }
-    }, 10) // Velocidade da animação
+    }, 10)
   }
 
   const askQuestion = async () => {
@@ -239,180 +240,195 @@ function App() {
 
   return (
     <div className={`app ${darkMode ? 'dark-theme' : 'light-theme'}`}>
-      <header className="app-header" style={{ 
-        background: `linear-gradient(135deg, ${languageTheme.primary} 0%, ${languageTheme.secondary} 100%)` 
-      }}>
-        <div className="header-content">
+      {/* Header estilo CodePen */}
+      <header className="code-pen-header">
+        <div className="header-left">
           <h1>🚀 SAAS Developer AI</h1>
-          <p>Desenvolva em qualquer linguagem • Hospedado na Nuvem</p>
-          <div className="header-controls">
-            <div className="status-indicator" style={{ backgroundColor: getStatusColor() }}>
-              {getStatusText()}
-            </div>
-            <button className="theme-toggle" onClick={toggleDarkMode}>
-              {darkMode ? '☀️ Light' : '🌙 Dark'}
-            </button>
+          <span className="subtitle">Code • Generate • Deploy</span>
+        </div>
+        <div className="header-right">
+          <div className="status-badge" style={{ backgroundColor: getStatusColor() }}>
+            {getStatusText()}
           </div>
+          <button className="theme-toggle-btn" onClick={toggleDarkMode}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
         </div>
       </header>
 
-      <div className="mode-selector">
-        <button 
-          className={`mode-btn ${mode === 'develop' ? 'active' : ''}`}
-          onClick={() => setMode('develop')}
-        >
-          💻 Desenvolver Código
-        </button>
-        <button 
-          className={`mode-btn ${mode === 'ask' ? 'active' : ''}`}
-          onClick={() => setMode('ask')}
-        >
-          ❓ Consultor Técnico
-        </button>
-      </div>
-
-      {/* Grid de Linguagens */}
-      <div className="languages-grid-section">
-        <h3>🎯 Selecione a Linguagem</h3>
-        <div className="languages-grid">
-          {AVAILABLE_LANGUAGES.map((lang) => (
-            <button
-              key={lang.id}
-              className={`language-card ${language === lang.id ? 'selected' : ''} ${lang.popular ? 'popular' : ''}`}
-              onClick={() => setLanguage(lang.id)}
-              style={{
-                borderColor: language === lang.id ? languageTheme.primary : 'transparent',
-                background: language === lang.id ? `${languageTheme.primary}20` : 'transparent'
-              }}
-            >
-              <span className="language-icon">{lang.icon}</span>
-              <span className="language-name">{lang.name}</span>
-              {lang.popular && <span className="popular-badge">🔥</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Templates */}
-      <div className="templates-section">
-        <button 
-          className="templates-toggle"
-          onClick={() => setShowTemplates(!showTemplates)}
-        >
-          {showTemplates ? '▼' : '►'} Quick Templates
-        </button>
-        
-        {showTemplates && (
-          <div className="templates-grid">
-            {QUICK_TEMPLATES.map((template) => (
-              <button
-                key={template.id}
-                className="template-card"
-                onClick={() => applyTemplate(template)}
-              >
-                {template.name}
-              </button>
-            ))}
+      <div className="main-container">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="sidebar-section">
+            <h3>🎯 Linguagens</h3>
+            <div className="languages-list">
+              {AVAILABLE_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.id}
+                  className={`lang-btn ${language === lang.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setLanguage(lang.id)
+                    setFramework('') // Reset framework ao mudar linguagem
+                  }}
+                >
+                  <span className="lang-icon">{lang.icon}</span>
+                  <span className="lang-name">{lang.name}</span>
+                  {lang.popular && <span className="popular-dot"></span>}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
 
-      {mode === 'develop' ? (
-        <div className="input-section">
-          <h3>Desenvolver Código <span className="language-tag" style={{ backgroundColor: languageTheme.primary }}>{LANGUAGE_THEMES[language]?.name}</span></h3>
-          <textarea
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            placeholder="Ex: Crie um sistema de autenticação JWT com Node.js e React
-Ex: Desenvolva uma API REST em Python com FastAPI
-Ex: Implemente um componente React com TypeScript e Tailwind"
-            rows="6"
-            disabled={loading}
-          />
-          
-          <div className="controls">
-            <input
-              type="text"
-              value={framework}
-              onChange={(e) => setFramework(e.target.value)}
-              placeholder={`Framework para ${LANGUAGE_THEMES[language]?.name} (opcional)`}
-              disabled={loading}
-            />
+          <div className="sidebar-section">
+            <h3>⚡ Templates</h3>
+            <div className="templates-list">
+              {QUICK_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  className="template-btn"
+                  onClick={() => applyTemplate(template)}
+                >
+                  {template.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="main-content">
+          {/* Mode Selector */}
+          <div className="mode-tabs">
+            <button 
+              className={`tab-btn ${mode === 'develop' ? 'active' : ''}`}
+              onClick={() => setMode('develop')}
+            >
+              💻 Desenvolver
+            </button>
+            <button 
+              className={`tab-btn ${mode === 'ask' ? 'active' : ''}`}
+              onClick={() => setMode('ask')}
+            >
+              ❓ Consultor
+            </button>
+          </div>
+
+          {/* Input Area */}
+          <div className="input-area">
+            {mode === 'develop' ? (
+              <>
+                <div className="input-header">
+                  <h3>Desenvolver Código em {LANGUAGE_THEMES[language]?.name}</h3>
+                  <div className="framework-selector">
+                    <select 
+                      value={framework} 
+                      onChange={(e) => setFramework(e.target.value)}
+                      className="framework-select"
+                    >
+                      <option value="">Selecione um framework (opcional)</option>
+                      {availableFrameworks.map((fw) => (
+                        <option key={fw} value={fw}>{fw}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <textarea
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder="Descreva o código que você precisa...
+Ex: Crie um sistema de autenticação JWT
+Ex: Desenvolva uma API REST completa
+Ex: Implemente um componente React com TypeScript"
+                  rows="6"
+                  disabled={loading}
+                />
+                
+                <div className="action-bar">
+                  <button 
+                    className="generate-btn"
+                    onClick={developCode}
+                    disabled={loading || !instruction.trim()}
+                  >
+                    {loading ? '⚡ Gerando...' : '🚀 Gerar Código'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="input-header">
+                  <h3>Consultor Técnico</h3>
+                </div>
+                
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Faça sua pergunta sobre programação...
+Ex: Qual a diferença entre microserviços e monólito?
+Ex: Como implementar clean architecture?
+Ex: Melhores práticas para segurança em APIs?"
+                  rows="6"
+                  disabled={loading}
+                />
+                
+                <div className="action-bar">
+                  <button 
+                    className="generate-btn"
+                    onClick={askQuestion}
+                    disabled={loading || !question.trim()}
+                  >
+                    {loading ? '🔍 Pesquisando...' : '🤔 Perguntar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="controls-bar">
+            <label className="control-item">
+              <input
+                type="checkbox"
+                checked={typingAnimation}
+                onChange={(e) => setTypingAnimation(e.target.checked)}
+              />
+              <span>Animacao de Digitacao</span>
+            </label>
             
-            <button 
-              className="action-btn"
-              onClick={developCode}
-              disabled={loading || !instruction.trim()}
-              style={{
-                background: `linear-gradient(135deg, ${languageTheme.primary}, ${languageTheme.secondary})`
-              }}
-            >
-              {loading ? '⏳ Gerando Código...' : '🚀 Gerar Código'}
-            </button>
+            {response && (
+              <div className="response-actions">
+                <button className="action-btn" onClick={copyToClipboard}>
+                  📋 Copiar
+                </button>
+                <button className="action-btn" onClick={downloadCode}>
+                  💾 Download
+                </button>
+                <button className="action-btn" onClick={clearConversation}>
+                  🗑️ Limpar
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      ) : (
-        <div className="input-section">
-          <h3>Consultor Técnico</h3>
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ex: Qual a diferença entre microserviços e arquitetura monolítica?
-Ex: Como implementar clean architecture em TypeScript?
-Ex: Melhores práticas para segurança em APIs REST?"
-            rows="6"
-            disabled={loading}
-          />
-          
-          <div className="controls">
-            <button 
-              className="action-btn"
-              onClick={askQuestion}
-              disabled={loading || !question.trim()}
-              style={{
-                background: `linear-gradient(135deg, ${languageTheme.primary}, ${languageTheme.secondary})`
-              }}
-            >
-              {loading ? '⏳ Pesquisando...' : '🤔 Fazer Pergunta'}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Controles de Animação e Ações */}
-      <div className="controls-section">
-        <div className="animation-controls">
-          <label className="animation-toggle">
-            <input
-              type="checkbox"
-              checked={typingAnimation}
-              onChange={(e) => setTypingAnimation(e.target.checked)}
-            />
-            <span>✍️ Animação de Digitação</span>
-          </label>
+          {/* Response */}
+          {response && (
+            <div className="response-area">
+              <div className="response-header">
+                <h3>📝 Código Gerado</h3>
+                <div className="response-info">
+                  <span className="lang-badge">{LANGUAGE_THEMES[language]?.name}</span>
+                  {framework && framework !== 'Nenhum' && (
+                    <span className="framework-badge">{framework}</span>
+                  )}
+                </div>
+              </div>
+              <pre className={`code-output ${typingAnimation ? 'typing' : ''}`}>
+                {response}
+              </pre>
+            </div>
+          )}
         </div>
-
-        {response && (
-          <div className="action-buttons">
-            <button className="action-btn secondary" onClick={copyToClipboard}>
-              📋 Copiar
-            </button>
-            <button className="action-btn secondary" onClick={downloadCode}>
-              💾 Download
-            </button>
-            <button className="action-btn secondary" onClick={clearConversation}>
-              🗑️ Limpar
-            </button>
-          </div>
-        )}
       </div>
-
-      {response && (
-        <div className="response-section">
-          <h3>📝 Resposta:</h3>
-          <pre className={typingAnimation ? 'typing-animation' : ''}>{response}</pre>
-        </div>
-      )}
     </div>
   )
 }
