@@ -343,7 +343,7 @@ body {
   gap: 1.5rem;
 }
 
-/* ===== STICKY INPUT AREA ===== */
+/* ===== STICKY INPUT AREA - CORRIGIDO ===== */
 .sticky-input-area {
   background: var(--sticky-input-bg);
   border-top: 1px solid var(--border-color);
@@ -394,61 +394,9 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* Response Options */
-.response-options {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.options-header {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.75rem;
-}
-
-.options-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.5rem;
-}
-
-.option-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.option-item:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.option-item input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--accent-color);
-}
-
-/* Input Area */
-.input-area {
-  background: var(--input-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
+/* Framework Selector */
 .framework-selector {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .framework-select {
@@ -464,6 +412,15 @@ body {
 .framework-select:focus {
   outline: none;
   border-color: var(--accent-color);
+}
+
+/* Input Area */
+.input-area {
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
 /* Textarea */
@@ -568,6 +525,50 @@ textarea:disabled {
 .stop-btn:hover {
   background: color-mix(in srgb, var(--error-color) 80%, black);
   transform: translateY(-1px);
+}
+
+/* Response Options - AGORA ABAIXO DO INPUT */
+.response-options {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.options-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.option-item:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.option-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-color);
 }
 
 /* ===== MENSAGENS ===== */

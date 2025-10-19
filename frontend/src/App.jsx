@@ -171,6 +171,7 @@ function App() {
 
   const responseEndRef = useRef(null)
   const inputAreaRef = useRef(null)
+  const stickyInputRef = useRef(null)
 
   // Frameworks disponíveis para a linguagem atual
   const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || []
@@ -185,6 +186,29 @@ function App() {
       responseEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [responseBlocks, conversation])
+
+  // Efeito para garantir que o sticky input fique sempre visível
+  useEffect(() => {
+    const updateStickyPosition = () => {
+      if (stickyInputRef.current) {
+        const rect = stickyInputRef.current.getBoundingClientRect()
+        if (rect.top < 60) { // Se estiver saindo da tela por cima
+          stickyInputRef.current.style.position = 'fixed'
+          stickyInputRef.current.style.top = '60px'
+          stickyInputRef.current.style.left = `${rect.left}px`
+          stickyInputRef.current.style.right = `${window.innerWidth - rect.right}px`
+        } else {
+          stickyInputRef.current.style.position = 'sticky'
+          stickyInputRef.current.style.top = '0'
+          stickyInputRef.current.style.left = 'auto'
+          stickyInputRef.current.style.right = 'auto'
+        }
+      }
+    }
+
+    window.addEventListener('scroll', updateStickyPosition)
+    return () => window.removeEventListener('scroll', updateStickyPosition)
+  }, [])
 
   const checkApiStatus = async () => {
     try {
@@ -235,8 +259,22 @@ function App() {
     }
   }
 
-  // Função para construir o prompt baseado nas opções selecionadas
+  // Função para construir o prompt baseado nas opções selecionadas - CORRIGIDA
   const buildPrompt = (userInput, language, framework) => {
+    const selectedOptions = Object.entries(responseOptions)
+      .filter(([_, selected]) => selected)
+      .map(([key]) => key)
+
+    if (selectedOptions.length === 0) {
+      return `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
+
+Gere APENAS o código baseado na seguinte instrução, sem nenhuma explicação adicional:
+
+INSTRUÇÃO: ${userInput}
+
+Forneça somente o código necessário, limpo e bem estruturado.`
+    }
+
     let prompt = `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
 
 Gere código baseado na seguinte instrução:
@@ -245,36 +283,32 @@ INSTRUÇÃO: ${userInput}
 
 `;
 
-    const selectedOptions = Object.entries(responseOptions)
-      .filter(([_, selected]) => selected)
-      .map(([key]) => key)
-
-    if (selectedOptions.length === 0) {
-      prompt += 'Forneça apenas o código necessário, sem explicações adicionais.'
-    } else {
-      prompt += 'Forneça:\n'
-      
-      if (responseOptions.code) {
-        prompt += '1. Código completo, funcional e bem estruturado\n'
-      }
-      if (responseOptions.explanation) {
-        prompt += '2. Explicação do que foi implementado\n'
-      }
-      if (responseOptions.usage) {
-        prompt += '3. Instruções de uso\n'
-      }
-      if (responseOptions.improvements) {
-        prompt += '4. Possíveis melhorias\n'
-      }
-      if (responseOptions.critical) {
-        prompt += '5. Pontos críticos e cuidados\n'
-      }
-      if (responseOptions.examples) {
-        prompt += '6. Exemplos adicionais de uso\n'
-      }
+    // CORREÇÃO: Usar condições específicas para cada opção
+    if (responseOptions.code) {
+      prompt += '1. Código completo, funcional e bem estruturado\n'
+    }
+    if (responseOptions.explanation) {
+      prompt += '2. Explicação detalhada do que foi implementado\n'
+    }
+    if (responseOptions.usage) {
+      prompt += '3. Instruções claras de como usar o código\n'
+    }
+    if (responseOptions.improvements) {
+      prompt += '4. Possíveis melhorias e extensões\n'
+    }
+    if (responseOptions.critical) {
+      prompt += '5. Pontos críticos e cuidados importantes\n'
+    }
+    if (responseOptions.examples) {
+      prompt += '6. Exemplos adicionais de uso\n'
     }
 
-    prompt += '\nSeja preciso e profissional.'
+    // CORREÇÃO: Adicionar instrução específica para "apenas código"
+    if (selectedOptions.length === 1 && responseOptions.code) {
+      prompt += '\nForneça APENAS o código, sem nenhuma explicação adicional.'
+    } else {
+      prompt += '\nSeja preciso e profissional na resposta.'
+    }
 
     return prompt
   }
@@ -297,7 +331,7 @@ INSTRUÇÃO: ${userInput}
     }
     
     setConversation(prev => [...prev, userMessage])
-    setInstruction('') // Limpa o input após enviar
+    setInstruction('')
     
     const controller = new AbortController()
     setAbortController(controller)
@@ -305,7 +339,9 @@ INSTRUÇÃO: ${userInput}
     try {
       console.log('🔄 Enviando requisição para:', `${API_URL}/api/develop`)
       
+      // CORREÇÃO: Usar a função buildPrompt corrigida
       const prompt = buildPrompt(userMessage.content, userMessage.language, userMessage.framework)
+      console.log('📝 Prompt enviado:', prompt)
       
       const response = await fetch(`${API_URL}/api/develop`, {
         method: 'POST',
@@ -382,7 +418,7 @@ INSTRUÇÃO: ${userInput}
     }
     
     setConversation(prev => [...prev, userMessage])
-    setQuestion('') // Limpa o input após enviar
+    setQuestion('')
     
     const controller = new AbortController()
     setAbortController(controller)
@@ -457,7 +493,6 @@ INSTRUÇÃO: ${userInput}
       
       currentText += fullText.charAt(i)
       
-      // Atualiza os blocos em tempo real a cada 50 caracteres
       if (i % 50 === 0 || i === fullText.length - 1) {
         const updatedMessage = {
           ...message,
@@ -715,10 +750,10 @@ INSTRUÇÃO: ${userInput}
             </div>
           </div>
 
-          {/* Sticky Input Area - SEMPRE VISÍVEL NO FUNDO */}
-          <div className="sticky-input-area">
+          {/* STICKY INPUT AREA - SEMPRE VISÍVEL E NA ORDEM CORRETA */}
+          <div className="sticky-input-area" ref={stickyInputRef}>
             <div className="input-container">
-              {/* Mode Selector */}
+              {/* 1. MODE SELECTOR - SEMPRE VISÍVEL */}
               <div className="mode-selector">
                 <button 
                   className={`mode-btn ${mode === 'develop' ? 'active' : ''}`}
@@ -734,42 +769,24 @@ INSTRUÇÃO: ${userInput}
                 </button>
               </div>
 
-              {/* Response Options */}
-              <div className="response-options">
-                <div className="options-header">
-                  <span>📋 Opções de Resposta:</span>
+              {/* 2. FRAMEWORK SELECTOR - SEMPRE VISÍVEL (apenas no modo develop) */}
+              {mode === 'develop' && (
+                <div className="framework-selector">
+                  <select 
+                    value={framework} 
+                    onChange={(e) => setFramework(e.target.value)}
+                    className="framework-select"
+                  >
+                    <option value="">Framework (opcional)</option>
+                    {availableFrameworks.map((fw) => (
+                      <option key={fw} value={fw}>{fw}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="options-grid">
-                  {RESPONSE_OPTIONS.map(option => (
-                    <label key={option.id} className="option-item" title={option.description}>
-                      <input
-                        type="checkbox"
-                        checked={responseOptions[option.id]}
-                        onChange={() => toggleResponseOption(option.id)}
-                      />
-                      <span>{option.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              )}
 
-              {/* Input Area */}
+              {/* 3. INPUT AREA - SEMPRE VISÍVEL */}
               <div className="input-area">
-                {mode === 'develop' && (
-                  <div className="framework-selector">
-                    <select 
-                      value={framework} 
-                      onChange={(e) => setFramework(e.target.value)}
-                      className="framework-select"
-                    >
-                      <option value="">Framework (opcional)</option>
-                      {availableFrameworks.map((fw) => (
-                        <option key={fw} value={fw}>{fw}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                
                 <textarea
                   ref={inputAreaRef}
                   value={mode === 'develop' ? instruction : question}
@@ -791,7 +808,7 @@ INSTRUÇÃO: ${userInput}
                         checked={typingAnimation}
                         onChange={(e) => setTypingAnimation(e.target.checked)}
                       />
-                      <span>Animacao</span>
+                      <span>Animação</span>
                     </label>
                   </div>
                   
@@ -813,6 +830,25 @@ INSTRUÇÃO: ${userInput}
                       </button>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* 4. RESPONSE OPTIONS - ABAIXO DO INPUT */}
+              <div className="response-options">
+                <div className="options-header">
+                  <span>📋 Opções de Resposta:</span>
+                </div>
+                <div className="options-grid">
+                  {RESPONSE_OPTIONS.map(option => (
+                    <label key={option.id} className="option-item" title={option.description}>
+                      <input
+                        type="checkbox"
+                        checked={responseOptions[option.id]}
+                        onChange={() => toggleResponseOption(option.id)}
+                      />
+                      <span>{option.name}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
