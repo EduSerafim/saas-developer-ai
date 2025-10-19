@@ -56,8 +56,13 @@ export default {
       );
 
     } catch (error) {
+      console.error('Error:', error);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ 
+          success: false, 
+          error: error.message,
+          type: 'server_error'
+        }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -84,6 +89,8 @@ async function handleDevelop(request, env, corsHeaders) {
       );
     }
 
+    console.log('📦 Recebido request para develop:', { language, framework, instructionLength: instruction.length });
+
     const prompt = `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
 
 Gere código baseado na seguinte instrução:
@@ -101,7 +108,7 @@ Seja preciso e profissional.`;
     const messages = [
       {
         role: "system",
-        content: `Você é um desenvolvedor sênior especializado em ${language}${framework ? ` e ${framework}` : ''}.`
+        content: `Você é um desenvolvedor sênior especializado em ${language}${framework ? ` e ${framework}` : ''}. Gere código limpo e bem documentado.`
       },
       { role: "user", content: prompt }
     ];
@@ -109,15 +116,24 @@ Seja preciso e profissional.`;
     const result = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
     
     return new Response(
-      JSON.stringify({ success: true, result }),
+      JSON.stringify({ 
+        success: true, 
+        result,
+        debug: { message: 'API call successful' }
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
+    console.error('❌ Erro em handleDevelop:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        debug: { type: 'develop_error', step: 'processing' }
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -142,6 +158,8 @@ async function handleAsk(request, env, corsHeaders) {
         }
       );
     }
+
+    console.log('📦 Recebido request para ask:', { language, questionLength: question.length });
 
     const prompt = `Você é um consultor técnico sênior.
 
@@ -169,15 +187,24 @@ Seja didático e profissional.`;
     const result = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
     
     return new Response(
-      JSON.stringify({ success: true, answer: result }),
+      JSON.stringify({ 
+        success: true, 
+        answer: result,
+        debug: { message: 'API call successful' }
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
+    console.error('❌ Erro em handleAsk:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        debug: { type: 'ask_error', step: 'processing' }
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -188,36 +215,77 @@ Seja didático e profissional.`;
 
 // Função para chamar a API DeepSeek
 async function callDeepSeekAPI(messages, apiKey) {
+  console.log('🔑 Verificando API Key...');
+  
   // Verificar se a API Key está configurada
   if (!apiKey || apiKey === 'sua_chave_aqui') {
     throw new Error('API Key da DeepSeek não configurada. Configure a variável DEEPSEEK_API_KEY no Cloudflare.');
   }
 
-  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'deepseek-coder',
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 4000,
-      stream: false
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
+  // Verificar formato da API Key (deve começar com sk-)
+  if (!apiKey.startsWith('sk-')) {
+    throw new Error('Formato inválido da API Key. Deve começar com "sk-". Verifique sua chave DeepSeek.');
   }
 
-  const data = await response.json();
+  console.log('🌐 Chamando API DeepSeek...');
   
-  if (!data.choices || !data.choices[0]) {
-    throw new Error('Resposta inválida da API DeepSeek');
-  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
 
-  return data.choices[0].message.content;
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-coder',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 4000,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log(`📡 Status da resposta: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro da API:', errorText);
+      
+      let errorMessage = `DeepSeek API error: ${response.status}`;
+      
+      if (response.status === 401) {
+        errorMessage = 'API Key inválida ou expirada. Verifique sua chave DeepSeek.';
+      } else if (response.status === 429) {
+        errorMessage = 'Limite de requisições excedido. Tente novamente em alguns minutos.';
+      } else if (response.status === 500) {
+        errorMessage = 'Erro interno do servidor DeepSeek. Tente novamente.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log('✅ Resposta da API recebida com sucesso');
+    
+    if (!data.choices || !data.choices[0]) {
+      throw new Error('Resposta inválida da API DeepSeek - nenhuma choice disponível');
+    }
+
+    return data.choices[0].message.content;
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Timeout: A requisição levou mais de 30 segundos. Tente novamente.');
+    }
+    
+    throw error;
+  }
 }

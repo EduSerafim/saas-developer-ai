@@ -150,6 +150,7 @@ function App() {
       abortController.abort()
       setIsGenerating(false)
       setLoading(false)
+      setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
     }
   }
 
@@ -168,6 +169,8 @@ function App() {
     setAbortController(controller)
 
     try {
+      console.log('🔄 Enviando requisição para:', `${API_URL}/api/develop`)
+      
       const response = await fetch(`${API_URL}/api/develop`, {
         method: 'POST',
         headers: {
@@ -181,11 +184,15 @@ function App() {
         signal: controller.signal
       })
 
+      console.log('📡 Status da resposta:', response.status)
+
       if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('✅ Resposta recebida:', data)
       
       if (data.success) {
         if (typingAnimation) {
@@ -195,14 +202,79 @@ function App() {
           setResponseBlocks(extractCodeBlocks(data.result))
         }
       } else {
-        throw new Error(data.error || 'Erro desconhecido')
+        throw new Error(data.error || 'Erro desconhecido do servidor')
       }
       
     } catch (error) {
+      console.error('❌ Erro completo:', error)
+      
       if (error.name === 'AbortError') {
-        setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
+        setResponse('⏹️ Geração interrompida pelo usuário.')
       } else {
-        setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique:\n• Backend está rodando\n• URL da API está correta\n• Sua API Key está configurada`)
+        setResponse(`❌ Erro: ${error.message}\n\n🔧 Detalhes técnicos:\n• Verifique se a API Key está configurada\n• Confirme se a chave DeepSeek é válida\n• Tente uma requisição mais simples\n\n💡 Dica: Teste com "Hello World" em Python primeiro`)
+      }
+    }
+    setLoading(false)
+    setIsGenerating(false)
+  }
+
+  const askQuestion = async () => {
+    if (!question.trim()) {
+      alert('Por favor, digite uma pergunta!')
+      return
+    }
+
+    setLoading(true)
+    setIsGenerating(true)
+    setResponse('')
+    setResponseBlocks([])
+    
+    const controller = new AbortController()
+    setAbortController(controller)
+
+    try {
+      console.log('🔄 Enviando requisição para:', `${API_URL}/api/ask`)
+      
+      const response = await fetch(`${API_URL}/api/ask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: question.trim(),
+          language: language !== 'any' ? language : null
+        }),
+        signal: controller.signal
+      })
+
+      console.log('📡 Status da resposta:', response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Resposta recebida:', data)
+      
+      if (data.success) {
+        if (typingAnimation) {
+          await simulateTypingAnimation(data.answer)
+        } else {
+          setResponse(data.answer)
+          setResponseBlocks(extractCodeBlocks(data.answer))
+        }
+      } else {
+        throw new Error(data.error || 'Erro desconhecido do servidor')
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro completo:', error)
+      
+      if (error.name === 'AbortError') {
+        setResponse('⏹️ Geração interrompida pelo usuário.')
+      } else {
+        setResponse(`❌ Erro: ${error.message}\n\n🔧 Verifique se o backend está configurado corretamente.`)
       }
     }
     setLoading(false)
@@ -229,61 +301,6 @@ function App() {
     
     // Atualização final dos blocos
     setResponseBlocks(extractCodeBlocks(text))
-  }
-
-  const askQuestion = async () => {
-    if (!question.trim()) {
-      alert('Por favor, digite uma pergunta!')
-      return
-    }
-
-    setLoading(true)
-    setIsGenerating(true)
-    setResponse('')
-    setResponseBlocks([])
-    
-    const controller = new AbortController()
-    setAbortController(controller)
-
-    try {
-      const response = await fetch(`${API_URL}/api/ask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: question.trim(),
-          language: language !== 'any' ? language : null
-        }),
-        signal: controller.signal
-      })
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success) {
-        if (typingAnimation) {
-          await simulateTypingAnimation(data.answer)
-        } else {
-          setResponse(data.answer)
-          setResponseBlocks(extractCodeBlocks(data.answer))
-        }
-      } else {
-        throw new Error(data.error || 'Erro desconhecido')
-      }
-      
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
-      } else {
-        setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique se o backend está rodando.`)
-      }
-    }
-    setLoading(false)
-    setIsGenerating(false)
   }
 
   const copyCodeToClipboard = async (code) => {
