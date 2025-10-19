@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://saas-developer-api.eadmms15.workers.dev'
 
@@ -100,6 +100,40 @@ const extractCodeBlocks = (text) => {
   return blocks;
 }
 
+// Função para syntax highlighting básico
+const highlightSyntax = (code, language) => {
+  if (language === 'python') {
+    return code
+      .replace(/(def|class|if|else|elif|for|while|return|import|from|as|try|except|finally|with)(?=\s)/g, '<span class="keyword">$1</span>')
+      .replace(/(["'`])(.*?)\1/g, '<span class="string">$1$2$1</span>')
+      .replace(/#(.*)$/gm, '<span class="comment">#$1</span>')
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
+      .replace(/(\w+)\s*\(/g, '<span class="function">$1</span>(');
+  }
+  
+  if (language === 'javascript' || language === 'typescript') {
+    return code
+      .replace(/(function|const|let|var|class|if|else|for|while|return|import|export|default|from)(?=\s)/g, '<span class="keyword">$1</span>')
+      .replace(/(["'`])(.*?)\1/g, '<span class="string">$1$2$1</span>')
+      .replace(/\/\/(.*)$/gm, '<span class="comment">//$1</span>')
+      .replace(/\/\*([\s\S]*?)\*\//g, '<span class="comment">/*$1*/</span>')
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
+      .replace(/(\w+)\s*\(/g, '<span class="function">$1</span>(');
+  }
+  
+  if (language === 'java') {
+    return code
+      .replace(/(public|private|protected|class|interface|static|void|int|String|boolean|if|else|for|while|return|import|package)(?=\s)/g, '<span class="keyword">$1</span>')
+      .replace(/(["'])(.*?)\1/g, '<span class="string">$1$2$1</span>')
+      .replace(/\/\/(.*)$/gm, '<span class="comment">//$1</span>')
+      .replace(/\/\*([\s\S]*?)\*\//g, '<span class="comment">/*$1*/</span>')
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>');
+  }
+  
+  // Para outras linguagens, retorna o código sem highlight
+  return code;
+}
+
 function App() {
   const [instruction, setInstruction] = useState('')
   const [language, setLanguage] = useState('python')
@@ -115,6 +149,10 @@ function App() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [abortController, setAbortController] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [conversation, setConversation] = useState([])
+
+  const responseEndRef = useRef(null)
+  const inputAreaRef = useRef(null)
 
   // Frameworks disponíveis para a linguagem atual
   const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || []
@@ -122,6 +160,13 @@ function App() {
   useEffect(() => {
     checkApiStatus()
   }, [])
+
+  useEffect(() => {
+    // Scroll para baixo quando nova resposta chegar
+    if (responseEndRef.current) {
+      responseEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [responseBlocks, conversation])
 
   const checkApiStatus = async () => {
     try {
@@ -143,6 +188,9 @@ function App() {
   const applyTemplate = (template) => {
     setInstruction(template.prompt)
     setShowTemplates(false)
+    if (inputAreaRef.current) {
+      inputAreaRef.current.focus()
+    }
   }
 
   const stopGeneration = () => {
@@ -162,8 +210,17 @@ function App() {
 
     setLoading(true)
     setIsGenerating(true)
-    setResponse('')
-    setResponseBlocks([])
+    
+    const userMessage = {
+      type: 'user',
+      content: instruction.trim(),
+      language,
+      framework: framework === 'Nenhum' ? null : framework,
+      timestamp: new Date()
+    }
+    
+    setConversation(prev => [...prev, userMessage])
+    setInstruction('') // Limpa o input após enviar
     
     const controller = new AbortController()
     setAbortController(controller)
@@ -177,9 +234,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instruction: instruction.trim(),
-          language,
-          framework: framework === 'Nenhum' ? null : framework
+          instruction: userMessage.content,
+          language: userMessage.language,
+          framework: userMessage.framework
         }),
         signal: controller.signal
       })
@@ -195,11 +252,19 @@ function App() {
       console.log('✅ Resposta recebida:', data)
       
       if (data.success) {
+        const assistantMessage = {
+          type: 'assistant',
+          content: data.result,
+          blocks: extractCodeBlocks(data.result),
+          timestamp: new Date()
+        }
+        
+        setConversation(prev => [...prev, assistantMessage])
+        
         if (typingAnimation) {
-          await simulateTypingAnimation(data.result)
+          await simulateTypingAnimation(assistantMessage)
         } else {
-          setResponse(data.result)
-          setResponseBlocks(extractCodeBlocks(data.result))
+          setResponseBlocks(assistantMessage.blocks)
         }
       } else {
         throw new Error(data.error || 'Erro desconhecido do servidor')
@@ -208,11 +273,15 @@ function App() {
     } catch (error) {
       console.error('❌ Erro completo:', error)
       
-      if (error.name === 'AbortError') {
-        setResponse('⏹️ Geração interrompida pelo usuário.')
-      } else {
-        setResponse(`❌ Erro: ${error.message}\n\n🔧 Detalhes técnicos:\n• Verifique se a API Key está configurada\n• Confirme se a chave DeepSeek é válida\n• Tente uma requisição mais simples\n\n💡 Dica: Teste com "Hello World" em Python primeiro`)
+      const errorMessage = {
+        type: 'error',
+        content: error.name === 'AbortError' 
+          ? '⏹️ Geração interrompida pelo usuário.'
+          : `❌ Erro: ${error.message}`,
+        timestamp: new Date()
       }
+      
+      setConversation(prev => [...prev, errorMessage])
     }
     setLoading(false)
     setIsGenerating(false)
@@ -226,8 +295,15 @@ function App() {
 
     setLoading(true)
     setIsGenerating(true)
-    setResponse('')
-    setResponseBlocks([])
+    
+    const userMessage = {
+      type: 'user',
+      content: question.trim(),
+      timestamp: new Date()
+    }
+    
+    setConversation(prev => [...prev, userMessage])
+    setQuestion('') // Limpa o input após enviar
     
     const controller = new AbortController()
     setAbortController(controller)
@@ -241,7 +317,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          question: question.trim(),
+          question: userMessage.content,
           language: language !== 'any' ? language : null
         }),
         signal: controller.signal
@@ -258,11 +334,19 @@ function App() {
       console.log('✅ Resposta recebida:', data)
       
       if (data.success) {
+        const assistantMessage = {
+          type: 'assistant',
+          content: data.answer,
+          blocks: extractCodeBlocks(data.answer),
+          timestamp: new Date()
+        }
+        
+        setConversation(prev => [...prev, assistantMessage])
+        
         if (typingAnimation) {
-          await simulateTypingAnimation(data.answer)
+          await simulateTypingAnimation(assistantMessage)
         } else {
-          setResponse(data.answer)
-          setResponseBlocks(extractCodeBlocks(data.answer))
+          setResponseBlocks(assistantMessage.blocks)
         }
       } else {
         throw new Error(data.error || 'Erro desconhecido do servidor')
@@ -271,37 +355,46 @@ function App() {
     } catch (error) {
       console.error('❌ Erro completo:', error)
       
-      if (error.name === 'AbortError') {
-        setResponse('⏹️ Geração interrompida pelo usuário.')
-      } else {
-        setResponse(`❌ Erro: ${error.message}\n\n🔧 Verifique se o backend está configurado corretamente.`)
+      const errorMessage = {
+        type: 'error',
+        content: error.name === 'AbortError' 
+          ? '⏹️ Geração interrompida pelo usuário.'
+          : `❌ Erro: ${error.message}`,
+        timestamp: new Date()
       }
+      
+      setConversation(prev => [...prev, errorMessage])
     }
     setLoading(false)
     setIsGenerating(false)
   }
 
-  const simulateTypingAnimation = async (text) => {
-    setResponse('')
-    setResponseBlocks([])
+  const simulateTypingAnimation = async (message) => {
     let currentText = ''
+    const fullText = message.content
     
-    for (let i = 0; i < text.length; i++) {
-      if (!isGenerating) break // Para se o usuário interromper
+    for (let i = 0; i < fullText.length; i++) {
+      if (!isGenerating) break
       
-      currentText += text.charAt(i)
-      setResponse(currentText)
+      currentText += fullText.charAt(i)
       
-      // Atualiza os blocos em tempo real a cada 20 caracteres
-      if (i % 20 === 0) {
-        setResponseBlocks(extractCodeBlocks(currentText))
+      // Atualiza os blocos em tempo real a cada 50 caracteres
+      if (i % 50 === 0 || i === fullText.length - 1) {
+        const updatedMessage = {
+          ...message,
+          content: currentText,
+          blocks: extractCodeBlocks(currentText)
+        }
+        
+        setConversation(prev => {
+          const newConversation = [...prev]
+          newConversation[newConversation.length - 1] = updatedMessage
+          return newConversation
+        })
       }
       
-      await new Promise(resolve => setTimeout(resolve, 5)) // Mais rápido
+      await new Promise(resolve => setTimeout(resolve, 1)) // Muito rápido
     }
-    
-    // Atualização final dos blocos com o texto completo
-    setResponseBlocks(extractCodeBlocks(text))
   }
 
   const copyCodeToClipboard = async (code) => {
@@ -313,27 +406,9 @@ function App() {
     }
   }
 
-  const copyAllToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(response)
-      alert('✅ Resposta completa copiada para a área de transferência!')
-    } catch (error) {
-      alert('❌ Erro ao copiar a resposta')
-    }
-  }
-
-  const downloadCode = () => {
-    const element = document.createElement('a')
-    const file = new Blob([response], { type: 'text/plain' })
-    element.href = URL.createObjectURL(file)
-    element.download = `code-${language}-${Date.now()}.txt`
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }
-
   const clearConversation = () => {
-    if (window.confirm('Tem certeza que deseja limpar a conversa?')) {
+    if (window.confirm('Tem certeza que deseja limpar toda a conversa?')) {
+      setConversation([])
       setResponse('')
       setResponseBlocks([])
       setInstruction('')
@@ -368,6 +443,8 @@ function App() {
       setTimeout(() => setIsCopied(false), 2000)
     }
 
+    const highlightedCode = highlightSyntax(block.content, block.language)
+
     return (
       <div className="code-block">
         <div className="code-header">
@@ -394,24 +471,71 @@ function App() {
           </button>
         </div>
         <pre className="code-content">
-          <code>{block.content}</code>
+          <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
         </pre>
       </div>
     )
   }
 
-  // Componente para renderizar texto normal
-  const TextBlock = ({ content }) => {
-    return (
-      <div className="text-block">
-        {content.split('\n').map((line, index) => (
-          <div key={index}>
-            {line}
-            {index < content.split('\n').length - 1 && <br />}
+  // Componente para renderizar mensagens da conversa
+  const Message = ({ message }) => {
+    if (message.type === 'user') {
+      return (
+        <div className="message user-message">
+          <div className="message-header">
+            <span className="message-avatar">👤</span>
+            <span className="message-info">Você • {message.language || 'Pergunta'}</span>
           </div>
-        ))}
-      </div>
-    )
+          <div className="message-content">
+            {message.content}
+          </div>
+        </div>
+      )
+    }
+
+    if (message.type === 'assistant') {
+      return (
+        <div className="message assistant-message">
+          <div className="message-header">
+            <span className="message-avatar">🤖</span>
+            <span className="message-info">SAAS Developer AI</span>
+          </div>
+          <div className="message-content">
+            {message.blocks && message.blocks.length > 0 ? (
+              message.blocks.map((block, index) =>
+                block.type === 'text' ? (
+                  <div key={index} className="text-block">
+                    {block.content}
+                  </div>
+                ) : (
+                  <CodeBlock key={block.id} block={block} />
+                )
+              )
+            ) : (
+              <div className="text-block">
+                {message.content}
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    if (message.type === 'error') {
+      return (
+        <div className="message error-message">
+          <div className="message-header">
+            <span className="message-avatar">❌</span>
+            <span className="message-info">Erro</span>
+          </div>
+          <div className="message-content">
+            {message.content}
+          </div>
+        </div>
+      )
+    }
+
+    return null
   }
 
   return (
@@ -432,206 +556,172 @@ function App() {
         </div>
       </header>
 
-      <div className="main-container">
-        {/* Sidebar */}
-        <div className="sidebar">
-          <div className="sidebar-section">
-            <h3>🎯 Linguagens</h3>
-            <div className="languages-list">
-              {AVAILABLE_LANGUAGES.map((lang) => (
-                <button
-                  key={lang.id}
-                  className={`lang-btn ${language === lang.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setLanguage(lang.id)
-                    setFramework('') // Reset framework ao mudar linguagem
-                  }}
-                >
-                  <span className="lang-icon">{lang.icon}</span>
-                  <span className="lang-name">{lang.name}</span>
-                  {lang.popular && <span className="popular-dot"></span>}
-                </button>
-              ))}
+      <div className="main-container split-layout">
+        {/* Painel Esquerdo - Input e Controles */}
+        <div className="left-panel">
+          <div className="panel-content">
+            {/* Mode Selector */}
+            <div className="mode-tabs">
+              <button 
+                className={`tab-btn ${mode === 'develop' ? 'active' : ''}`}
+                onClick={() => setMode('develop')}
+              >
+                💻 Desenvolver
+              </button>
+              <button 
+                className={`tab-btn ${mode === 'ask' ? 'active' : ''}`}
+                onClick={() => setMode('ask')}
+              >
+                ❓ Consultor
+              </button>
             </div>
-          </div>
 
-          <div className="sidebar-section">
-            <h3>⚡ Templates</h3>
-            <div className="templates-list">
-              {QUICK_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  className="template-btn"
-                  onClick={() => applyTemplate(template)}
-                >
-                  {template.name}
+            {/* Input Area */}
+            <div className="input-area" ref={inputAreaRef}>
+              {mode === 'develop' ? (
+                <>
+                  <div className="input-header">
+                    <h3>Desenvolver Código em {LANGUAGE_THEMES[language]?.name}</h3>
+                    <div className="framework-selector">
+                      <select 
+                        value={framework} 
+                        onChange={(e) => setFramework(e.target.value)}
+                        className="framework-select"
+                      >
+                        <option value="">Framework (opcional)</option>
+                        {availableFrameworks.map((fw) => (
+                          <option key={fw} value={fw}>{fw}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <textarea
+                    value={instruction}
+                    onChange={(e) => setInstruction(e.target.value)}
+                    placeholder="Descreva o código que você precisa...
+Ex: Crie um sistema de autenticação JWT
+Ex: Desenvolva uma API REST completa
+Ex: Implemente um componente React com TypeScript"
+                    rows="4"
+                    disabled={loading}
+                  />
+                  
+                  <div className="action-bar">
+                    <button 
+                      className="generate-btn"
+                      onClick={developCode}
+                      disabled={loading || !instruction.trim()}
+                    >
+                      {loading ? '⚡ Gerando...' : '🚀 Gerar Código'}
+                    </button>
+                    {isGenerating && (
+                      <button 
+                        className="stop-btn"
+                        onClick={stopGeneration}
+                      >
+                        ⏹️ Parar
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="input-header">
+                    <h3>Consultor Técnico</h3>
+                  </div>
+                  
+                  <textarea
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Faça sua pergunta sobre programação...
+Ex: Qual a diferença entre microserviços e monólito?
+Ex: Como implementar clean architecture?
+Ex: Melhores práticas para segurança em APIs?"
+                    rows="4"
+                    disabled={loading}
+                  />
+                  
+                  <div className="action-bar">
+                    <button 
+                      className="generate-btn"
+                      onClick={askQuestion}
+                      disabled={loading || !question.trim()}
+                    >
+                      {loading ? '🔍 Pesquisando...' : '🤔 Perguntar'}
+                    </button>
+                    {isGenerating && (
+                      <button 
+                        className="stop-btn"
+                        onClick={stopGeneration}
+                      >
+                        ⏹️ Parar
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick Templates */}
+            <div className="templates-section">
+              <h3>⚡ Templates Rápidos</h3>
+              <div className="templates-grid">
+                {QUICK_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    className="template-btn"
+                    onClick={() => applyTemplate(template)}
+                  >
+                    {template.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="controls-section">
+              <label className="control-item">
+                <input
+                  type="checkbox"
+                  checked={typingAnimation}
+                  onChange={(e) => setTypingAnimation(e.target.checked)}
+                />
+                <span>Animação de Digitação</span>
+              </label>
+              
+              {conversation.length > 0 && (
+                <button className="clear-btn" onClick={clearConversation}>
+                  🗑️ Limpar Conversa
                 </button>
-              ))}
+              )}
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="main-content">
-          {/* Mode Selector */}
-          <div className="mode-tabs">
-            <button 
-              className={`tab-btn ${mode === 'develop' ? 'active' : ''}`}
-              onClick={() => setMode('develop')}
-            >
-              💻 Desenvolver
-            </button>
-            <button 
-              className={`tab-btn ${mode === 'ask' ? 'active' : ''}`}
-              onClick={() => setMode('ask')}
-            >
-              ❓ Consultor
-            </button>
-          </div>
-
-          {/* Input Area */}
-          <div className="input-area">
-            {mode === 'develop' ? (
-              <>
-                <div className="input-header">
-                  <h3>Desenvolver Código em {LANGUAGE_THEMES[language]?.name}</h3>
-                  <div className="framework-selector">
-                    <select 
-                      value={framework} 
-                      onChange={(e) => setFramework(e.target.value)}
-                      className="framework-select"
-                    >
-                      <option value="">Selecione um framework (opcional)</option>
-                      {availableFrameworks.map((fw) => (
-                        <option key={fw} value={fw}>{fw}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <textarea
-                  value={instruction}
-                  onChange={(e) => setInstruction(e.target.value)}
-                  placeholder="Descreva o código que você precisa...
-Ex: Crie um sistema de autenticação JWT
-Ex: Desenvolva uma API REST completa
-Ex: Implemente um componente React com TypeScript"
-                  rows="6"
-                  disabled={loading}
-                />
-                
-                <div className="action-bar">
-                  <button 
-                    className="generate-btn"
-                    onClick={developCode}
-                    disabled={loading || !instruction.trim()}
-                  >
-                    {loading ? '⚡ Gerando...' : '🚀 Gerar Código'}
-                  </button>
-                  {isGenerating && (
-                    <button 
-                      className="stop-btn"
-                      onClick={stopGeneration}
-                    >
-                      ⏹️ Parar
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="input-header">
-                  <h3>Consultor Técnico</h3>
-                </div>
-                
-                <textarea
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Faça sua pergunta sobre programação...
-Ex: Qual a diferença entre microserviços e monólito?
-Ex: Como implementar clean architecture?
-Ex: Melhores práticas para segurança em APIs?"
-                  rows="6"
-                  disabled={loading}
-                />
-                
-                <div className="action-bar">
-                  <button 
-                    className="generate-btn"
-                    onClick={askQuestion}
-                    disabled={loading || !question.trim()}
-                  >
-                    {loading ? '🔍 Pesquisando...' : '🤔 Perguntar'}
-                  </button>
-                  {isGenerating && (
-                    <button 
-                      className="stop-btn"
-                      onClick={stopGeneration}
-                    >
-                      ⏹️ Parar
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Controls */}
-          <div className="controls-bar">
-            <label className="control-item">
-              <input
-                type="checkbox"
-                checked={typingAnimation}
-                onChange={(e) => setTypingAnimation(e.target.checked)}
-              />
-              <span>Animação de Digitação</span>
-            </label>
-            
-            {response && (
-              <div className="response-actions">
-                <button className="action-btn" onClick={copyAllToClipboard}>
-                  📋 Copiar Tudo
-                </button>
-                <button className="action-btn" onClick={downloadCode}>
-                  💾 Download
-                </button>
-                <button className="action-btn" onClick={clearConversation}>
-                  🗑️ Limpar
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Response */}
-          {(response || responseBlocks.length > 0) && (
-            <div className="response-area">
-              <div className="response-header">
-                <h3>📝 Resposta</h3>
-                <div className="response-info">
-                  <span className="lang-badge">{LANGUAGE_THEMES[language]?.name}</span>
-                  {framework && framework !== 'Nenhum' && (
-                    <span className="framework-badge">{framework}</span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="response-content">
-                {responseBlocks.length > 0 ? (
-                  responseBlocks.map((block, index) =>
-                    block.type === 'text' ? (
-                      <TextBlock key={index} content={block.content} />
-                    ) : (
-                      <CodeBlock key={block.id} block={block} />
-                    )
-                  )
-                ) : (
-                  <div className="text-block">
-                    {response}
-                  </div>
-                )}
-              </div>
+        {/* Painel Direito - Conversação */}
+        <div className="right-panel">
+          <div className="conversation-area">
+            <div className="conversation-header">
+              <h3>💬 Conversa</h3>
+              <span className="conversation-count">{conversation.length} mensagens</span>
             </div>
-          )}
+            
+            <div className="conversation-messages">
+              {conversation.length === 0 ? (
+                <div className="empty-conversation">
+                  <div className="empty-icon">💭</div>
+                  <h4>Nenhuma conversa ainda</h4>
+                  <p>Faça uma pergunta ou solicite um código para começar!</p>
+                </div>
+              ) : (
+                conversation.map((message, index) => (
+                  <Message key={index} message={message} />
+                ))
+              )}
+              <div ref={responseEndRef} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
