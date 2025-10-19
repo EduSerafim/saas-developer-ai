@@ -57,6 +57,16 @@ const QUICK_TEMPLATES = [
   { id: 'api', name: '🌐 API REST', prompt: 'Desenvolva uma API REST com endpoints documentados' }
 ]
 
+// Opções de resposta modular
+const RESPONSE_OPTIONS = [
+  { id: 'code', name: '📋 Apenas o código', description: 'Somente o código sem explicações' },
+  { id: 'explanation', name: '💡 Explicação do código', description: 'Explicação do que foi implementado' },
+  { id: 'usage', name: '🚀 Instruções de uso', description: 'Como usar o código gerado' },
+  { id: 'improvements', name: '🔧 Possíveis melhorias', description: 'Sugestões de melhorias e extensões' },
+  { id: 'critical', name: '⚠️ Pontos críticos', description: 'Atenções e cuidados importantes' },
+  { id: 'examples', name: '📝 Exemplos adicionais', description: 'Exemplos complementares de uso' }
+]
+
 // Função para extrair blocos de código da resposta
 const extractCodeBlocks = (text) => {
   if (!text) return [];
@@ -146,10 +156,18 @@ function App() {
   const [apiStatus, setApiStatus] = useState('checking')
   const [darkMode, setDarkMode] = useState(true)
   const [typingAnimation, setTypingAnimation] = useState(true)
-  const [showTemplates, setShowTemplates] = useState(false)
+  const [sidebarVisible, setSidebarVisible] = useState(true)
   const [abortController, setAbortController] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [conversation, setConversation] = useState([])
+  const [responseOptions, setResponseOptions] = useState({
+    code: true,
+    explanation: true,
+    usage: true,
+    improvements: true,
+    critical: false,
+    examples: false
+  })
 
   const responseEndRef = useRef(null)
   const inputAreaRef = useRef(null)
@@ -185,9 +203,19 @@ function App() {
     setDarkMode(!darkMode)
   }
 
+  const toggleSidebar = () => {
+    setSidebarVisible(!sidebarVisible)
+  }
+
+  const toggleResponseOption = (optionId) => {
+    setResponseOptions(prev => ({
+      ...prev,
+      [optionId]: !prev[optionId]
+    }))
+  }
+
   const applyTemplate = (template) => {
     setInstruction(template.prompt)
-    setShowTemplates(false)
     if (inputAreaRef.current) {
       inputAreaRef.current.focus()
     }
@@ -198,8 +226,57 @@ function App() {
       abortController.abort()
       setIsGenerating(false)
       setLoading(false)
-      setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
+      const errorMessage = {
+        type: 'error',
+        content: '⏹️ Geração interrompida pelo usuário.',
+        timestamp: new Date()
+      }
+      setConversation(prev => [...prev, errorMessage])
     }
+  }
+
+  // Função para construir o prompt baseado nas opções selecionadas
+  const buildPrompt = (userInput, language, framework) => {
+    let prompt = `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
+
+Gere código baseado na seguinte instrução:
+
+INSTRUÇÃO: ${userInput}
+
+`;
+
+    const selectedOptions = Object.entries(responseOptions)
+      .filter(([_, selected]) => selected)
+      .map(([key]) => key)
+
+    if (selectedOptions.length === 0) {
+      prompt += 'Forneça apenas o código necessário, sem explicações adicionais.'
+    } else {
+      prompt += 'Forneça:\n'
+      
+      if (responseOptions.code) {
+        prompt += '1. Código completo, funcional e bem estruturado\n'
+      }
+      if (responseOptions.explanation) {
+        prompt += '2. Explicação do que foi implementado\n'
+      }
+      if (responseOptions.usage) {
+        prompt += '3. Instruções de uso\n'
+      }
+      if (responseOptions.improvements) {
+        prompt += '4. Possíveis melhorias\n'
+      }
+      if (responseOptions.critical) {
+        prompt += '5. Pontos críticos e cuidados\n'
+      }
+      if (responseOptions.examples) {
+        prompt += '6. Exemplos adicionais de uso\n'
+      }
+    }
+
+    prompt += '\nSeja preciso e profissional.'
+
+    return prompt
   }
 
   const developCode = async () => {
@@ -228,13 +305,15 @@ function App() {
     try {
       console.log('🔄 Enviando requisição para:', `${API_URL}/api/develop`)
       
+      const prompt = buildPrompt(userMessage.content, userMessage.language, userMessage.framework)
+      
       const response = await fetch(`${API_URL}/api/develop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instruction: userMessage.content,
+          instruction: prompt,
           language: userMessage.language,
           framework: userMessage.framework
         }),
@@ -393,7 +472,7 @@ function App() {
         })
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1)) // Muito rápido
+      await new Promise(resolve => setTimeout(resolve, 1))
     }
   }
 
@@ -540,9 +619,16 @@ function App() {
 
   return (
     <div className={`app ${darkMode ? 'dark-theme' : 'light-theme'}`}>
-      {/* Header estilo CodePen */}
-      <header className="code-pen-header">
+      {/* Header */}
+      <header className="app-header">
         <div className="header-left">
+          <button 
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            title={sidebarVisible ? 'Ocultar menu' : 'Mostrar menu'}
+          >
+            {sidebarVisible ? '◀️' : '▶️'}
+          </button>
           <h1>🚀 SAAS Developer AI</h1>
           <span className="subtitle">Code • Generate • Deploy</span>
         </div>
@@ -556,117 +642,33 @@ function App() {
         </div>
       </header>
 
-      <div className="main-container split-layout">
-        {/* Painel Esquerdo - Input e Controles */}
-        <div className="left-panel">
-          <div className="panel-content">
-            {/* Mode Selector */}
-            <div className="mode-tabs">
-              <button 
-                className={`tab-btn ${mode === 'develop' ? 'active' : ''}`}
-                onClick={() => setMode('develop')}
-              >
-                💻 Desenvolver
-              </button>
-              <button 
-                className={`tab-btn ${mode === 'ask' ? 'active' : ''}`}
-                onClick={() => setMode('ask')}
-              >
-                ❓ Consultor
-              </button>
+      <div className="main-container">
+        {/* Sidebar */}
+        {sidebarVisible && (
+          <div className="sidebar">
+            <div className="sidebar-section">
+              <h3>🎯 Linguagens</h3>
+              <div className="languages-list">
+                {AVAILABLE_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.id}
+                    className={`lang-btn ${language === lang.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setLanguage(lang.id)
+                      setFramework('')
+                    }}
+                  >
+                    <span className="lang-icon">{lang.icon}</span>
+                    <span className="lang-name">{lang.name}</span>
+                    {lang.popular && <span className="popular-dot"></span>}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Input Area */}
-            <div className="input-area" ref={inputAreaRef}>
-              {mode === 'develop' ? (
-                <>
-                  <div className="input-header">
-                    <h3>Desenvolver Código em {LANGUAGE_THEMES[language]?.name}</h3>
-                    <div className="framework-selector">
-                      <select 
-                        value={framework} 
-                        onChange={(e) => setFramework(e.target.value)}
-                        className="framework-select"
-                      >
-                        <option value="">Framework (opcional)</option>
-                        {availableFrameworks.map((fw) => (
-                          <option key={fw} value={fw}>{fw}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <textarea
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    placeholder="Descreva o código que você precisa...
-Ex: Crie um sistema de autenticação JWT
-Ex: Desenvolva uma API REST completa
-Ex: Implemente um componente React com TypeScript"
-                    rows="4"
-                    disabled={loading}
-                  />
-                  
-                  <div className="action-bar">
-                    <button 
-                      className="generate-btn"
-                      onClick={developCode}
-                      disabled={loading || !instruction.trim()}
-                    >
-                      {loading ? '⚡ Gerando...' : '🚀 Gerar Código'}
-                    </button>
-                    {isGenerating && (
-                      <button 
-                        className="stop-btn"
-                        onClick={stopGeneration}
-                      >
-                        ⏹️ Parar
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="input-header">
-                    <h3>Consultor Técnico</h3>
-                  </div>
-                  
-                  <textarea
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Faça sua pergunta sobre programação...
-Ex: Qual a diferença entre microserviços e monólito?
-Ex: Como implementar clean architecture?
-Ex: Melhores práticas para segurança em APIs?"
-                    rows="4"
-                    disabled={loading}
-                  />
-                  
-                  <div className="action-bar">
-                    <button 
-                      className="generate-btn"
-                      onClick={askQuestion}
-                      disabled={loading || !question.trim()}
-                    >
-                      {loading ? '🔍 Pesquisando...' : '🤔 Perguntar'}
-                    </button>
-                    {isGenerating && (
-                      <button 
-                        className="stop-btn"
-                        onClick={stopGeneration}
-                      >
-                        ⏹️ Parar
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Quick Templates */}
-            <div className="templates-section">
-              <h3>⚡ Templates Rápidos</h3>
-              <div className="templates-grid">
+            <div className="sidebar-section">
+              <h3>⚡ Templates</h3>
+              <div className="templates-list">
                 {QUICK_TEMPLATES.map((template) => (
                   <button
                     key={template.id}
@@ -678,33 +680,23 @@ Ex: Melhores práticas para segurança em APIs?"
                 ))}
               </div>
             </div>
-
-            {/* Controls */}
-            <div className="controls-section">
-              <label className="control-item">
-                <input
-                  type="checkbox"
-                  checked={typingAnimation}
-                  onChange={(e) => setTypingAnimation(e.target.checked)}
-                />
-                <span>Animação de Digitação</span>
-              </label>
-              
-              {conversation.length > 0 && (
-                <button className="clear-btn" onClick={clearConversation}>
-                  🗑️ Limpar Conversa
-                </button>
-              )}
-            </div>
           </div>
-        </div>
+        )}
 
-        {/* Painel Direito - Conversação */}
-        <div className="right-panel">
+        {/* Main Content Area */}
+        <div className={`main-content ${!sidebarVisible ? 'expanded' : ''}`}>
+          {/* Conversation Area */}
           <div className="conversation-area">
             <div className="conversation-header">
               <h3>💬 Conversa</h3>
-              <span className="conversation-count">{conversation.length} mensagens</span>
+              <div className="conversation-controls">
+                <span className="conversation-count">{conversation.length} mensagens</span>
+                {conversation.length > 0 && (
+                  <button className="clear-btn" onClick={clearConversation}>
+                    🗑️ Limpar
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="conversation-messages">
@@ -720,6 +712,109 @@ Ex: Melhores práticas para segurança em APIs?"
                 ))
               )}
               <div ref={responseEndRef} />
+            </div>
+          </div>
+
+          {/* Sticky Input Area - SEMPRE VISÍVEL NO FUNDO */}
+          <div className="sticky-input-area">
+            <div className="input-container">
+              {/* Mode Selector */}
+              <div className="mode-selector">
+                <button 
+                  className={`mode-btn ${mode === 'develop' ? 'active' : ''}`}
+                  onClick={() => setMode('develop')}
+                >
+                  💻 Desenvolver
+                </button>
+                <button 
+                  className={`mode-btn ${mode === 'ask' ? 'active' : ''}`}
+                  onClick={() => setMode('ask')}
+                >
+                  ❓ Consultor
+                </button>
+              </div>
+
+              {/* Response Options */}
+              <div className="response-options">
+                <div className="options-header">
+                  <span>📋 Opções de Resposta:</span>
+                </div>
+                <div className="options-grid">
+                  {RESPONSE_OPTIONS.map(option => (
+                    <label key={option.id} className="option-item" title={option.description}>
+                      <input
+                        type="checkbox"
+                        checked={responseOptions[option.id]}
+                        onChange={() => toggleResponseOption(option.id)}
+                      />
+                      <span>{option.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Input Area */}
+              <div className="input-area">
+                {mode === 'develop' && (
+                  <div className="framework-selector">
+                    <select 
+                      value={framework} 
+                      onChange={(e) => setFramework(e.target.value)}
+                      className="framework-select"
+                    >
+                      <option value="">Framework (opcional)</option>
+                      {availableFrameworks.map((fw) => (
+                        <option key={fw} value={fw}>{fw}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                <textarea
+                  ref={inputAreaRef}
+                  value={mode === 'develop' ? instruction : question}
+                  onChange={(e) => mode === 'develop' ? setInstruction(e.target.value) : setQuestion(e.target.value)}
+                  placeholder={
+                    mode === 'develop' 
+                      ? `Descreva o código que você precisa em ${LANGUAGE_THEMES[language]?.name}...`
+                      : "Faça sua pergunta sobre programação..."
+                  }
+                  rows="3"
+                  disabled={loading}
+                />
+                
+                <div className="input-actions">
+                  <div className="action-controls">
+                    <label className="control-item">
+                      <input
+                        type="checkbox"
+                        checked={typingAnimation}
+                        onChange={(e) => setTypingAnimation(e.target.checked)}
+                      />
+                      <span>Animacao</span>
+                    </label>
+                  </div>
+                  
+                  <div className="action-buttons">
+                    {isGenerating ? (
+                      <button 
+                        className="stop-btn"
+                        onClick={stopGeneration}
+                      >
+                        ⏹️ Parar
+                      </button>
+                    ) : (
+                      <button 
+                        className="generate-btn"
+                        onClick={mode === 'develop' ? developCode : askQuestion}
+                        disabled={loading || (mode === 'develop' ? !instruction.trim() : !question.trim())}
+                      >
+                        {mode === 'develop' ? '🚀 Gerar Código' : '🤔 Perguntar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
