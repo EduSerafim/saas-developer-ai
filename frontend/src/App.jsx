@@ -283,6 +283,7 @@ function App() {
 
   const simulateTypingAnimation = async (text) => {
     setResponse('')
+    setResponseBlocks([])
     let currentText = ''
     
     for (let i = 0; i < text.length; i++) {
@@ -291,15 +292,15 @@ function App() {
       currentText += text.charAt(i)
       setResponse(currentText)
       
-      // Atualiza os blocos em tempo real
-      if (i % 50 === 0) { // Atualiza a cada 50 caracteres para performance
+      // Atualiza os blocos em tempo real a cada 20 caracteres
+      if (i % 20 === 0) {
         setResponseBlocks(extractCodeBlocks(currentText))
       }
       
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise(resolve => setTimeout(resolve, 5)) // Mais rápido
     }
     
-    // Atualização final dos blocos
+    // Atualização final dos blocos com o texto completo
     setResponseBlocks(extractCodeBlocks(text))
   }
 
@@ -395,6 +396,20 @@ function App() {
         <pre className="code-content">
           <code>{block.content}</code>
         </pre>
+      </div>
+    )
+  }
+
+  // Componente para renderizar texto normal
+  const TextBlock = ({ content }) => {
+    return (
+      <div className="text-block">
+        {content.split('\n').map((line, index) => (
+          <div key={index}>
+            {line}
+            {index < content.split('\n').length - 1 && <br />}
+          </div>
+        ))}
       </div>
     )
   }
@@ -588,7 +603,7 @@ Ex: Melhores práticas para segurança em APIs?"
           </div>
 
           {/* Response */}
-          {response && (
+          {(response || responseBlocks.length > 0) && (
             <div className="response-area">
               <div className="response-header">
                 <h3>📝 Resposta</h3>
@@ -601,15 +616,19 @@ Ex: Melhores práticas para segurança em APIs?"
               </div>
               
               <div className="response-content">
-                {responseBlocks.map((block, index) => (
-                  block.type === 'text' ? (
-                    <div key={index} className="text-block">
-                      {block.content}
-                    </div>
-                  ) : (
-                    <CodeBlock key={block.id} block={block} />
+                {responseBlocks.length > 0 ? (
+                  responseBlocks.map((block, index) =>
+                    block.type === 'text' ? (
+                      <TextBlock key={index} content={block.content} />
+                    ) : (
+                      <CodeBlock key={block.id} block={block} />
+                    )
                   )
-                ))}
+                ) : (
+                  <div className="text-block">
+                    {response}
+                  </div>
+                )}
               </div>
             </div>
           )}
