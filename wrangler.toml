@@ -1,6 +1,6 @@
 name = "saas-developer-api"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-01-01"
 main = "worker.js"
 
 [vars]
-DEEPSEEK_API_KEY = "sua_chave_aqui"
+DEEPSEEK_API_KEY = "sk-dfa94c6d8dd246bab5561cee42cd3e11"

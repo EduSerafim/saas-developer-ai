@@ -57,18 +57,64 @@ const QUICK_TEMPLATES = [
   { id: 'api', name: '🌐 API REST', prompt: 'Desenvolva uma API REST com endpoints documentados' }
 ]
 
+// Função para extrair blocos de código da resposta
+const extractCodeBlocks = (text) => {
+  if (!text) return [];
+  
+  const blocks = [];
+  const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Texto antes do bloco de código (explicação)
+    const textBefore = text.slice(lastIndex, match.index).trim();
+    if (textBefore) {
+      blocks.push({ type: 'text', content: textBefore });
+    }
+
+    // Bloco de código
+    const language = match[1] || 'text';
+    const code = match[2].trim();
+    blocks.push({ 
+      type: 'code', 
+      language, 
+      content: code,
+      id: Math.random().toString(36).substr(2, 9)
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Texto restante após o último bloco de código
+  const remainingText = text.slice(lastIndex).trim();
+  if (remainingText) {
+    blocks.push({ type: 'text', content: remainingText });
+  }
+
+  // Se não encontrou blocos de código, trata tudo como texto
+  if (blocks.length === 0 && text.trim()) {
+    blocks.push({ type: 'text', content: text });
+  }
+
+  return blocks;
+}
+
 function App() {
   const [instruction, setInstruction] = useState('')
   const [language, setLanguage] = useState('python')
   const [framework, setFramework] = useState('')
   const [question, setQuestion] = useState('')
   const [response, setResponse] = useState('')
+  const [responseBlocks, setResponseBlocks] = useState([])
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState('develop')
   const [apiStatus, setApiStatus] = useState('checking')
   const [darkMode, setDarkMode] = useState(true)
   const [typingAnimation, setTypingAnimation] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [abortController, setAbortController] = useState(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Frameworks disponíveis para a linguagem atual
   const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || []
@@ -79,7 +125,7 @@ function App() {
 
   const checkApiStatus = async () => {
     try {
-      const response = await fetch(`${API_URL}/health`)
+      const response = await fetch(`${API_URL}/`)
       if (response.ok) {
         setApiStatus('online')
       } else {
@@ -99,6 +145,14 @@ function App() {
     setShowTemplates(false)
   }
 
+  const stopGeneration = () => {
+    if (abortController) {
+      abortController.abort()
+      setIsGenerating(false)
+      setLoading(false)
+    }
+  }
+
   const developCode = async () => {
     if (!instruction.trim()) {
       alert('Por favor, digite uma instrução!')
@@ -106,6 +160,13 @@ function App() {
     }
 
     setLoading(true)
+    setIsGenerating(true)
+    setResponse('')
+    setResponseBlocks([])
+    
+    const controller = new AbortController()
+    setAbortController(controller)
+
     try {
       const response = await fetch(`${API_URL}/api/develop`, {
         method: 'POST',
@@ -116,7 +177,8 @@ function App() {
           instruction: instruction.trim(),
           language,
           framework: framework === 'Nenhum' ? null : framework
-        })
+        }),
+        signal: controller.signal
       })
 
       if (!response.ok) {
@@ -127,31 +189,46 @@ function App() {
       
       if (data.success) {
         if (typingAnimation) {
-          simulateTypingAnimation(data.result)
+          await simulateTypingAnimation(data.result)
         } else {
           setResponse(data.result)
+          setResponseBlocks(extractCodeBlocks(data.result))
         }
       } else {
         throw new Error(data.error || 'Erro desconhecido')
       }
       
     } catch (error) {
-      setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique:\n• Backend está rodando\n• URL da API está correta\n• Sua API Key está configurada`)
+      if (error.name === 'AbortError') {
+        setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
+      } else {
+        setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique:\n• Backend está rodando\n• URL da API está correta\n• Sua API Key está configurada`)
+      }
     }
     setLoading(false)
+    setIsGenerating(false)
   }
 
-  const simulateTypingAnimation = (text) => {
+  const simulateTypingAnimation = async (text) => {
     setResponse('')
-    let index = 0
-    const timer = setInterval(() => {
-      if (index < text.length) {
-        setResponse(prev => prev + text.charAt(index))
-        index++
-      } else {
-        clearInterval(timer)
+    let currentText = ''
+    
+    for (let i = 0; i < text.length; i++) {
+      if (!isGenerating) break // Para se o usuário interromper
+      
+      currentText += text.charAt(i)
+      setResponse(currentText)
+      
+      // Atualiza os blocos em tempo real
+      if (i % 50 === 0) { // Atualiza a cada 50 caracteres para performance
+        setResponseBlocks(extractCodeBlocks(currentText))
       }
-    }, 10)
+      
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    
+    // Atualização final dos blocos
+    setResponseBlocks(extractCodeBlocks(text))
   }
 
   const askQuestion = async () => {
@@ -161,6 +238,13 @@ function App() {
     }
 
     setLoading(true)
+    setIsGenerating(true)
+    setResponse('')
+    setResponseBlocks([])
+    
+    const controller = new AbortController()
+    setAbortController(controller)
+
     try {
       const response = await fetch(`${API_URL}/api/ask`, {
         method: 'POST',
@@ -170,7 +254,8 @@ function App() {
         body: JSON.stringify({
           question: question.trim(),
           language: language !== 'any' ? language : null
-        })
+        }),
+        signal: controller.signal
       })
 
       if (!response.ok) {
@@ -181,24 +266,39 @@ function App() {
       
       if (data.success) {
         if (typingAnimation) {
-          simulateTypingAnimation(data.answer)
+          await simulateTypingAnimation(data.answer)
         } else {
           setResponse(data.answer)
+          setResponseBlocks(extractCodeBlocks(data.answer))
         }
       } else {
         throw new Error(data.error || 'Erro desconhecido')
       }
       
     } catch (error) {
-      setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique se o backend está rodando.`)
+      if (error.name === 'AbortError') {
+        setResponse(prev => prev + '\n\n⏹️ Geração interrompida pelo usuário.')
+      } else {
+        setResponse(`❌ Erro: ${error.message}\n\n💡 Verifique se o backend está rodando.`)
+      }
     }
     setLoading(false)
+    setIsGenerating(false)
   }
 
-  const copyToClipboard = async () => {
+  const copyCodeToClipboard = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      alert('✅ Código copiado para a área de transferência!')
+    } catch (error) {
+      alert('❌ Erro ao copiar o código')
+    }
+  }
+
+  const copyAllToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(response)
-      alert('✅ Resposta copiada para a área de transferência!')
+      alert('✅ Resposta completa copiada para a área de transferência!')
     } catch (error) {
       alert('❌ Erro ao copiar a resposta')
     }
@@ -217,8 +317,10 @@ function App() {
   const clearConversation = () => {
     if (window.confirm('Tem certeza que deseja limpar a conversa?')) {
       setResponse('')
+      setResponseBlocks([])
       setInstruction('')
       setQuestion('')
+      stopGeneration()
     }
   }
 
@@ -236,6 +338,48 @@ function App() {
       case 'error': return '❌ Backend Offline'
       default: return '🟡 Verificando...'
     }
+  }
+
+  // Componente para renderizar blocos de código com syntax highlighting
+  const CodeBlock = ({ block }) => {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = async () => {
+      await copyCodeToClipboard(block.content)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    }
+
+    return (
+      <div className="code-block">
+        <div className="code-header">
+          <span className="code-language">
+            {block.language === 'text' ? '📄 Texto' : 
+             block.language === 'python' ? '🐍 Python' :
+             block.language === 'javascript' ? '⚡ JavaScript' :
+             block.language === 'typescript' ? '🔷 TypeScript' :
+             block.language === 'java' ? '☕ Java' :
+             block.language === 'go' ? '🐹 Go' :
+             block.language === 'rust' ? '🦀 Rust' :
+             block.language === 'php' ? '🐘 PHP' :
+             block.language === 'csharp' ? '💚 C#' :
+             block.language === 'ruby' ? '♦️ Ruby' :
+             block.language === 'swift' ? '🕊 Swift' :
+             block.language === 'kotlin' ? '🔶 Kotlin' :
+             `📝 ${block.language}`}
+          </span>
+          <button 
+            className={`copy-btn ${isCopied ? 'copied' : ''}`}
+            onClick={handleCopy}
+          >
+            {isCopied ? '✅ Copiado!' : '📋 Copiar'}
+          </button>
+        </div>
+        <pre className="code-content">
+          <code>{block.content}</code>
+        </pre>
+      </div>
+    )
   }
 
   return (
@@ -352,6 +496,14 @@ Ex: Implemente um componente React com TypeScript"
                   >
                     {loading ? '⚡ Gerando...' : '🚀 Gerar Código'}
                   </button>
+                  {isGenerating && (
+                    <button 
+                      className="stop-btn"
+                      onClick={stopGeneration}
+                    >
+                      ⏹️ Parar
+                    </button>
+                  )}
                 </div>
               </>
             ) : (
@@ -379,6 +531,14 @@ Ex: Melhores práticas para segurança em APIs?"
                   >
                     {loading ? '🔍 Pesquisando...' : '🤔 Perguntar'}
                   </button>
+                  {isGenerating && (
+                    <button 
+                      className="stop-btn"
+                      onClick={stopGeneration}
+                    >
+                      ⏹️ Parar
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -392,13 +552,13 @@ Ex: Melhores práticas para segurança em APIs?"
                 checked={typingAnimation}
                 onChange={(e) => setTypingAnimation(e.target.checked)}
               />
-              <span>Animacao de Digitacao</span>
+              <span>Animação de Digitação</span>
             </label>
             
             {response && (
               <div className="response-actions">
-                <button className="action-btn" onClick={copyToClipboard}>
-                  📋 Copiar
+                <button className="action-btn" onClick={copyAllToClipboard}>
+                  📋 Copiar Tudo
                 </button>
                 <button className="action-btn" onClick={downloadCode}>
                   💾 Download
@@ -414,7 +574,7 @@ Ex: Melhores práticas para segurança em APIs?"
           {response && (
             <div className="response-area">
               <div className="response-header">
-                <h3>📝 Código Gerado</h3>
+                <h3>📝 Resposta</h3>
                 <div className="response-info">
                   <span className="lang-badge">{LANGUAGE_THEMES[language]?.name}</span>
                   {framework && framework !== 'Nenhum' && (
@@ -422,9 +582,18 @@ Ex: Melhores práticas para segurança em APIs?"
                   )}
                 </div>
               </div>
-              <pre className={`code-output ${typingAnimation ? 'typing' : ''}`}>
-                {response}
-              </pre>
+              
+              <div className="response-content">
+                {responseBlocks.map((block, index) => (
+                  block.type === 'text' ? (
+                    <div key={index} className="text-block">
+                      {block.content}
+                    </div>
+                  ) : (
+                    <CodeBlock key={block.id} block={block} />
+                  )
+                ))}
+              </div>
             </div>
           )}
         </div>

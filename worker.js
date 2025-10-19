@@ -17,13 +17,14 @@ export default {
     }
 
     try {
-      // Rota principal - health check
-      if (pathname === '/' || pathname === '/api') {
+      // Rota principal - health check (CORRIGIDO)
+      if (pathname === '/' || pathname === '/api' || pathname === '/health') {
         return new Response(
           JSON.stringify({
             message: '🚀 SAAS Developer AI API - Cloudflare Workers',
             status: 'online',
-            endpoints: ['/api/develop', '/api/ask']
+            endpoints: ['/api/develop', '/api/ask'],
+            timestamp: new Date().toISOString()
           }),
           { 
             status: 200,
