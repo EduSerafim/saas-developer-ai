@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://saas-developer-api.eadmms15.workers.dev'
+const API_URL = import.meta.env.VITE_API_URL || 'https://saas-developer-api.eadmms15.workers.dev';
 
-// Configurações de temas por linguagem
+// ===== CONFIGURAÇÕES =====
 const LANGUAGE_THEMES = {
-  python: { primary: '#3776AB', secondary: '#FFD43B', name: 'Python' },
-  javascript: { primary: '#F7DF1E', secondary: '#000000', name: 'JavaScript' },
-  typescript: { primary: '#3178C6', secondary: '#FFFFFF', name: 'TypeScript' },
-  java: { primary: '#007396', secondary: '#ED8B00', name: 'Java' },
-  go: { primary: '#00ADD8', secondary: '#FFFFFF', name: 'Go' },
-  rust: { primary: '#000000', secondary: '#DEA584', name: 'Rust' },
-  php: { primary: '#777BB4', secondary: '#FFFFFF', name: 'PHP' },
-  csharp: { primary: '#239120', secondary: '#FFFFFF', name: 'C#' },
-  ruby: { primary: '#CC342D', secondary: '#FFFFFF', name: 'Ruby' },
-  swift: { primary: '#FA7343', secondary: '#FFFFFF', name: 'Swift' },
-  kotlin: { primary: '#7F52FF', secondary: '#FFFFFF', name: 'Kotlin' }
-}
+  python: { name: 'Python', icon: '🐍', extensions: ['.py'] },
+  javascript: { name: 'JavaScript', icon: '⚡', extensions: ['.js', '.jsx'] },
+  typescript: { name: 'TypeScript', icon: '🔷', extensions: ['.ts', '.tsx'] },
+  java: { name: 'Java', icon: '☕', extensions: ['.java'] },
+  go: { name: 'Go', icon: '🐹', extensions: ['.go'] },
+  rust: { name: 'Rust', icon: '🦀', extensions: ['.rs'] },
+  php: { name: 'PHP', icon: '🐘', extensions: ['.php'] },
+  csharp: { name: 'C#', icon: '💚', extensions: ['.cs'] },
+  ruby: { name: 'Ruby', icon: '♦️', extensions: ['.rb'] },
+  swift: { name: 'Swift', icon: '🕊', extensions: ['.swift'] },
+  kotlin: { name: 'Kotlin', icon: '🔶', extensions: ['.kt'] }
+};
 
-// Linguagens disponíveis
 const AVAILABLE_LANGUAGES = [
   { id: 'python', name: 'Python', icon: '🐍', popular: true },
   { id: 'javascript', name: 'JavaScript', icon: '⚡', popular: true },
@@ -30,34 +29,22 @@ const AVAILABLE_LANGUAGES = [
   { id: 'ruby', name: 'Ruby', icon: '♦️', popular: false },
   { id: 'swift', name: 'Swift', icon: '🕊', popular: false },
   { id: 'kotlin', name: 'Kotlin', icon: '🔶', popular: false }
-]
+];
 
-// Frameworks por linguagem
 const FRAMEWORKS_BY_LANGUAGE = {
-  python: ['Django', 'Flask', 'FastAPI', 'Pyramid', 'Bottle', 'CherryPy', 'Nenhum'],
-  javascript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'Nuxt.js', 'Svelte', 'Nenhum'],
-  typescript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'Nuxt.js', 'NestJS', 'Nenhum'],
-  java: ['Spring', 'Spring Boot', 'Jakarta EE', 'Micronaut', 'Quarkus', 'Vert.x', 'Play', 'Nenhum'],
-  go: ['Gin', 'Echo', 'Fiber', 'Beego', 'Revel', 'Nenhum'],
+  python: ['Django', 'Flask', 'FastAPI', 'Pyramid', 'Nenhum'],
+  javascript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'Nenhum'],
+  typescript: ['React', 'Vue', 'Angular', 'Node.js', 'Express', 'Next.js', 'NestJS', 'Nenhum'],
+  java: ['Spring', 'Spring Boot', 'Jakarta EE', 'Micronaut', 'Nenhum'],
+  go: ['Gin', 'Echo', 'Fiber', 'Beego', 'Nenhum'],
   rust: ['Actix', 'Rocket', 'Warp', 'Tide', 'Nenhum'],
-  php: ['Laravel', 'Symfony', 'CodeIgniter', 'CakePHP', 'Yii', 'Nenhum'],
-  csharp: ['.NET', 'ASP.NET', 'Blazor', 'Xamarin', 'Unity', 'Nenhum'],
+  php: ['Laravel', 'Symfony', 'CodeIgniter', 'CakePHP', 'Nenhum'],
+  csharp: ['.NET', 'ASP.NET', 'Blazor', 'Xamarin', 'Nenhum'],
   ruby: ['Ruby on Rails', 'Sinatra', 'Hanami', 'Nenhum'],
   swift: ['Vapor', 'Perfect', 'Kitura', 'Nenhum'],
   kotlin: ['Spring', 'Ktor', 'Micronaut', 'Vert.x', 'Nenhum']
-}
+};
 
-// Quick Templates
-const QUICK_TEMPLATES = [
-  { id: 'crud', name: '📊 CRUD API', prompt: 'Crie uma API REST completa com operações CRUD' },
-  { id: 'auth', name: '🔐 Sistema de Autenticação', prompt: 'Implemente um sistema de autenticação JWT' },
-  { id: 'database', name: '🗄️ Modelo de Banco', prompt: 'Crie modelos de banco de dados com relacionamentos' },
-  { id: 'component', name: '⚛️ Componente React', prompt: 'Desenvolva um componente React reutilizável' },
-  { id: 'form', name: '📝 Formulário com Validação', prompt: 'Crie um formulário com validação completa' },
-  { id: 'api', name: '🌐 API REST', prompt: 'Desenvolva uma API REST com endpoints documentados' }
-]
-
-// Opções de resposta modular
 const RESPONSE_OPTIONS = [
   { id: 'code', name: '📋 Apenas o código', description: 'Somente o código sem explicações' },
   { id: 'explanation', name: '💡 Explicação do código', description: 'Explicação do que foi implementado' },
@@ -65,9 +52,9 @@ const RESPONSE_OPTIONS = [
   { id: 'improvements', name: '🔧 Possíveis melhorias', description: 'Sugestões de melhorias e extensões' },
   { id: 'critical', name: '⚠️ Pontos críticos', description: 'Atenções e cuidados importantes' },
   { id: 'examples', name: '📝 Exemplos adicionais', description: 'Exemplos complementares de uso' }
-]
+];
 
-// Função para extrair blocos de código da resposta
+// ===== FUNÇÕES UTILITÁRIAS =====
 const extractCodeBlocks = (text) => {
   if (!text) return [];
   
@@ -77,13 +64,11 @@ const extractCodeBlocks = (text) => {
   let match;
 
   while ((match = codeBlockRegex.exec(text)) !== null) {
-    // Texto antes do bloco de código (explicação)
     const textBefore = text.slice(lastIndex, match.index).trim();
     if (textBefore) {
       blocks.push({ type: 'text', content: textBefore });
     }
 
-    // Bloco de código
     const language = match[1] || 'text';
     const code = match[2].trim();
     blocks.push({ 
@@ -96,21 +81,18 @@ const extractCodeBlocks = (text) => {
     lastIndex = match.index + match[0].length;
   }
 
-  // Texto restante após o último bloco de código
   const remainingText = text.slice(lastIndex).trim();
   if (remainingText) {
     blocks.push({ type: 'text', content: remainingText });
   }
 
-  // Se não encontrou blocos de código, trata tudo como texto
   if (blocks.length === 0 && text.trim()) {
     blocks.push({ type: 'text', content: text });
   }
 
   return blocks;
-}
+};
 
-// Função para syntax highlighting básico
 const highlightSyntax = (code, language) => {
   if (language === 'python') {
     return code
@@ -140,130 +122,205 @@ const highlightSyntax = (code, language) => {
       .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>');
   }
   
-  // Para outras linguagens, retorna o código sem highlight
   return code;
-}
+};
 
+// ===== COMPONENTES =====
+const CodeBlock = ({ block }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(block.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy code:', error);
+    }
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([block.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `code-${block.language}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const highlightedCode = highlightSyntax(block.content, block.language);
+
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block">
+        <div className="code-header">
+          <div className="code-language">
+            <span className="lang-icon">
+              {LANGUAGE_THEMES[block.language]?.icon || '📝'}
+            </span>
+            <span className="lang-name">
+              {LANGUAGE_THEMES[block.language]?.name || block.language}
+            </span>
+          </div>
+          <div className="code-actions">
+            <button 
+              className={`action-btn copy-btn ${isCopied ? 'copied' : ''}`}
+              onClick={handleCopy}
+              title="Copiar código"
+            >
+              {isCopied ? '✅' : '📋'}
+            </button>
+            <button 
+              className="action-btn download-btn"
+              onClick={handleDownload}
+              title="Download do código"
+            >
+              ⬇️
+            </button>
+          </div>
+        </div>
+        <div className="code-content-wrapper">
+          <pre className="code-content">
+            <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Message = ({ message }) => {
+  if (message.type === 'user') {
+    return (
+      <div className="message user-message">
+        <div className="message-avatar">👤</div>
+        <div className="message-content">
+          <div className="message-text">{message.content}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (message.type === 'assistant') {
+    return (
+      <div className="message assistant-message">
+        <div className="message-avatar">🤖</div>
+        <div className="message-content">
+          {message.blocks && message.blocks.length > 0 ? (
+            message.blocks.map((block, index) =>
+              block.type === 'text' ? (
+                <div key={index} className="text-block">
+                  {block.content}
+                </div>
+              ) : (
+                <CodeBlock key={block.id} block={block} />
+              )
+            )
+          ) : (
+            <div className="text-block">
+              {message.content}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const ChatHistoryItem = ({ chat, isActive, onClick }) => {
+  return (
+    <div 
+      className={`chat-history-item ${isActive ? 'active' : ''}`}
+      onClick={onClick}
+    >
+      <div className="chat-icon">💬</div>
+      <div className="chat-info">
+        <div className="chat-title">{chat.title}</div>
+        <div className="chat-preview">{chat.preview}</div>
+        <div className="chat-date">{chat.date}</div>
+      </div>
+    </div>
+  );
+};
+
+// ===== COMPONENTE PRINCIPAL =====
 function App() {
-  const [instruction, setInstruction] = useState('')
-  const [language, setLanguage] = useState('python')
-  const [framework, setFramework] = useState('')
-  const [question, setQuestion] = useState('')
-  const [response, setResponse] = useState('')
-  const [responseBlocks, setResponseBlocks] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('develop')
-  const [apiStatus, setApiStatus] = useState('checking')
-  const [darkMode, setDarkMode] = useState(true)
-  const [typingAnimation, setTypingAnimation] = useState(true)
-  const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [abortController, setAbortController] = useState(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [conversation, setConversation] = useState([])
+  // Estados principais
+  const [conversation, setConversation] = useState([]);
+  const [currentChat, setCurrentChat] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [instruction, setInstruction] = useState('');
+  const [language, setLanguage] = useState('python');
+  const [framework, setFramework] = useState('');
+  const [mode, setMode] = useState('develop');
+  const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [abortController, setAbortController] = useState(null);
   const [responseOptions, setResponseOptions] = useState({
     code: true,
     explanation: true,
     usage: true,
-    improvements: true,
+    improvements: false,
     critical: false,
     examples: false
-  })
+  });
 
-  const responseEndRef = useRef(null)
-  const inputAreaRef = useRef(null)
-  const stickyInputRef = useRef(null)
+  // Refs
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const stickyInputRef = useRef(null);
 
-  // Frameworks disponíveis para a linguagem atual
-  const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || []
+  // Efeitos
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversation]);
 
   useEffect(() => {
-    checkApiStatus()
-  }, [])
-
-  useEffect(() => {
-    // Scroll para baixo quando nova resposta chegar
-    if (responseEndRef.current) {
-      responseEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [responseBlocks, conversation])
-
-  // Efeito para garantir que o sticky input fique sempre visível
-  useEffect(() => {
-    const updateStickyPosition = () => {
+    const handleScroll = () => {
       if (stickyInputRef.current) {
-        const rect = stickyInputRef.current.getBoundingClientRect()
-        if (rect.top < 60) { // Se estiver saindo da tela por cima
-          stickyInputRef.current.style.position = 'fixed'
-          stickyInputRef.current.style.top = '60px'
-          stickyInputRef.current.style.left = `${rect.left}px`
-          stickyInputRef.current.style.right = `${window.innerWidth - rect.right}px`
+        const rect = stickyInputRef.current.getBoundingClientRect();
+        if (rect.top < 100) {
+          stickyInputRef.current.style.position = 'fixed';
+          stickyInputRef.current.style.bottom = '20px';
+          stickyInputRef.current.style.left = '50%';
+          stickyInputRef.current.style.transform = 'translateX(-50%)';
+          stickyInputRef.current.style.width = 'calc(100% - 400px)';
+          stickyInputRef.current.style.zIndex = '1000';
         } else {
-          stickyInputRef.current.style.position = 'sticky'
-          stickyInputRef.current.style.top = '0'
-          stickyInputRef.current.style.left = 'auto'
-          stickyInputRef.current.style.right = 'auto'
+          stickyInputRef.current.style.position = 'sticky';
+          stickyInputRef.current.style.bottom = '0';
+          stickyInputRef.current.style.left = 'auto';
+          stickyInputRef.current.style.transform = 'none';
+          stickyInputRef.current.style.width = '100%';
         }
       }
-    }
+    };
 
-    window.addEventListener('scroll', updateStickyPosition)
-    return () => window.removeEventListener('scroll', updateStickyPosition)
-  }, [])
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  const checkApiStatus = async () => {
-    try {
-      const response = await fetch(`${API_URL}/`)
-      if (response.ok) {
-        setApiStatus('online')
-      } else {
-        setApiStatus('error')
-      }
-    } catch (error) {
-      setApiStatus('error')
-    }
-  }
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-  }
-
-  const toggleSidebar = () => {
-    setSidebarVisible(!sidebarVisible)
-  }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const toggleResponseOption = (optionId) => {
     setResponseOptions(prev => ({
       ...prev,
       [optionId]: !prev[optionId]
-    }))
-  }
+    }));
+  };
 
-  const applyTemplate = (template) => {
-    setInstruction(template.prompt)
-    if (inputAreaRef.current) {
-      inputAreaRef.current.focus()
-    }
-  }
-
-  const stopGeneration = () => {
-    if (abortController) {
-      abortController.abort()
-      setIsGenerating(false)
-      setLoading(false)
-      const errorMessage = {
-        type: 'error',
-        content: '⏹️ Geração interrompida pelo usuário.',
-        timestamp: new Date()
-      }
-      setConversation(prev => [...prev, errorMessage])
-    }
-  }
-
-  // Função para construir o prompt baseado nas opções selecionadas - CORRIGIDA
   const buildPrompt = (userInput, language, framework) => {
     const selectedOptions = Object.entries(responseOptions)
       .filter(([_, selected]) => selected)
-      .map(([key]) => key)
+      .map(([key]) => key);
 
     if (selectedOptions.length === 0) {
       return `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
@@ -272,7 +329,7 @@ Gere APENAS o código baseado na seguinte instrução, sem nenhuma explicação 
 
 INSTRUÇÃO: ${userInput}
 
-Forneça somente o código necessário, limpo e bem estruturado.`
+Forneça somente o código necessário, limpo e bem estruturado.`;
     }
 
     let prompt = `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
@@ -283,514 +340,275 @@ INSTRUÇÃO: ${userInput}
 
 `;
 
-    // CORREÇÃO: Usar condições específicas para cada opção
-    if (responseOptions.code) {
-      prompt += '1. Código completo, funcional e bem estruturado\n'
-    }
-    if (responseOptions.explanation) {
-      prompt += '2. Explicação detalhada do que foi implementado\n'
-    }
-    if (responseOptions.usage) {
-      prompt += '3. Instruções claras de como usar o código\n'
-    }
-    if (responseOptions.improvements) {
-      prompt += '4. Possíveis melhorias e extensões\n'
-    }
-    if (responseOptions.critical) {
-      prompt += '5. Pontos críticos e cuidados importantes\n'
-    }
-    if (responseOptions.examples) {
-      prompt += '6. Exemplos adicionais de uso\n'
-    }
+    if (responseOptions.code) prompt += '1. Código completo, funcional e bem estruturado\n';
+    if (responseOptions.explanation) prompt += '2. Explicação detalhada do que foi implementado\n';
+    if (responseOptions.usage) prompt += '3. Instruções claras de como usar o código\n';
+    if (responseOptions.improvements) prompt += '4. Possíveis melhorias e extensões\n';
+    if (responseOptions.critical) prompt += '5. Pontos críticos e cuidados importantes\n';
+    if (responseOptions.examples) prompt += '6. Exemplos adicionais de uso\n';
 
-    // CORREÇÃO: Adicionar instrução específica para "apenas código"
     if (selectedOptions.length === 1 && responseOptions.code) {
-      prompt += '\nForneça APENAS o código, sem nenhuma explicação adicional.'
+      prompt += '\nForneça APENAS o código, sem nenhuma explicação adicional.';
     } else {
-      prompt += '\nSeja preciso e profissional na resposta.'
+      prompt += '\nSeja preciso e profissional na resposta.';
     }
 
-    return prompt
-  }
+    return prompt;
+  };
 
   const developCode = async () => {
-    if (!instruction.trim()) {
-      alert('Por favor, digite uma instrução!')
-      return
-    }
+    if (!instruction.trim()) return;
 
-    setLoading(true)
-    setIsGenerating(true)
+    setLoading(true);
+    setIsGenerating(true);
+    setIsPaused(false);
     
     const userMessage = {
       type: 'user',
       content: instruction.trim(),
       language,
       framework: framework === 'Nenhum' ? null : framework,
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+      id: Date.now().toString()
+    };
     
-    setConversation(prev => [...prev, userMessage])
-    setInstruction('')
+    setConversation(prev => [...prev, userMessage]);
+    setInstruction('');
     
-    const controller = new AbortController()
-    setAbortController(controller)
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
-      console.log('🔄 Enviando requisição para:', `${API_URL}/api/develop`)
-      
-      // CORREÇÃO: Usar a função buildPrompt corrigida
-      const prompt = buildPrompt(userMessage.content, userMessage.language, userMessage.framework)
-      console.log('📝 Prompt enviado:', prompt)
+      const prompt = buildPrompt(userMessage.content, userMessage.language, userMessage.framework);
       
       const response = await fetch(`${API_URL}/api/develop`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instruction: prompt,
           language: userMessage.language,
           framework: userMessage.framework
         }),
         signal: controller.signal
-      })
-
-      console.log('📡 Status da resposta:', response.status)
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
       }
 
-      const data = await response.json()
-      console.log('✅ Resposta recebida:', data)
+      const data = await response.json();
       
       if (data.success) {
         const assistantMessage = {
           type: 'assistant',
           content: data.result,
           blocks: extractCodeBlocks(data.result),
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+          id: (Date.now() + 1).toString()
+        };
         
-        setConversation(prev => [...prev, assistantMessage])
+        setConversation(prev => [...prev, assistantMessage]);
         
-        if (typingAnimation) {
-          await simulateTypingAnimation(assistantMessage)
-        } else {
-          setResponseBlocks(assistantMessage.blocks)
-        }
+        // Atualizar histórico de chats
+        updateChatHistory(userMessage.content, data.result);
       } else {
-        throw new Error(data.error || 'Erro desconhecido do servidor')
+        throw new Error(data.error || 'Erro desconhecido do servidor');
       }
       
     } catch (error) {
-      console.error('❌ Erro completo:', error)
+      console.error('Erro:', error);
       
       const errorMessage = {
         type: 'error',
         content: error.name === 'AbortError' 
           ? '⏹️ Geração interrompida pelo usuário.'
           : `❌ Erro: ${error.message}`,
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+        id: Date.now().toString()
+      };
       
-      setConversation(prev => [...prev, errorMessage])
+      setConversation(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+      setIsGenerating(false);
+      setIsPaused(false);
     }
-    setLoading(false)
-    setIsGenerating(false)
-  }
+  };
 
-  const askQuestion = async () => {
-    if (!question.trim()) {
-      alert('Por favor, digite uma pergunta!')
-      return
+  const updateChatHistory = (userMessage, assistantResponse) => {
+    const newChat = {
+      id: Date.now().toString(),
+      title: userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : ''),
+      preview: assistantResponse.slice(0, 100) + (assistantResponse.length > 100 ? '...' : ''),
+      date: new Date().toLocaleDateString('pt-BR'),
+      conversation: [...conversation]
+    };
+
+    setChatHistory(prev => [newChat, ...prev.slice(0, 9)]); // Mantém apenas 10 chats
+    setCurrentChat(newChat.id);
+  };
+
+  const stopGeneration = () => {
+    if (abortController) {
+      abortController.abort();
+      setIsGenerating(false);
+      setLoading(false);
+      setIsPaused(false);
     }
+  };
 
-    setLoading(true)
-    setIsGenerating(true)
-    
-    const userMessage = {
-      type: 'user',
-      content: question.trim(),
-      timestamp: new Date()
+  const togglePause = () => {
+    setIsPaused(!isPaused);
+    // Aqui você pode implementar a lógica de pausar/continuar a geração
+    // Isso pode requerer modificações no backend para suportar streaming
+  };
+
+  const createNewChat = () => {
+    setConversation([]);
+    setCurrentChat(null);
+    setInstruction('');
+    inputRef.current?.focus();
+  };
+
+  const loadChat = (chatId) => {
+    const chat = chatHistory.find(c => c.id === chatId);
+    if (chat) {
+      setConversation(chat.conversation);
+      setCurrentChat(chatId);
     }
-    
-    setConversation(prev => [...prev, userMessage])
-    setQuestion('')
-    
-    const controller = new AbortController()
-    setAbortController(controller)
+  };
 
-    try {
-      console.log('🔄 Enviando requisição para:', `${API_URL}/api/ask`)
-      
-      const response = await fetch(`${API_URL}/api/ask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: userMessage.content,
-          language: language !== 'any' ? language : null
-        }),
-        signal: controller.signal
-      })
-
-      console.log('📡 Status da resposta:', response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log('✅ Resposta recebida:', data)
-      
-      if (data.success) {
-        const assistantMessage = {
-          type: 'assistant',
-          content: data.answer,
-          blocks: extractCodeBlocks(data.answer),
-          timestamp: new Date()
-        }
-        
-        setConversation(prev => [...prev, assistantMessage])
-        
-        if (typingAnimation) {
-          await simulateTypingAnimation(assistantMessage)
-        } else {
-          setResponseBlocks(assistantMessage.blocks)
-        }
-      } else {
-        throw new Error(data.error || 'Erro desconhecido do servidor')
-      }
-      
-    } catch (error) {
-      console.error('❌ Erro completo:', error)
-      
-      const errorMessage = {
-        type: 'error',
-        content: error.name === 'AbortError' 
-          ? '⏹️ Geração interrompida pelo usuário.'
-          : `❌ Erro: ${error.message}`,
-        timestamp: new Date()
-      }
-      
-      setConversation(prev => [...prev, errorMessage])
-    }
-    setLoading(false)
-    setIsGenerating(false)
-  }
-
-  const simulateTypingAnimation = async (message) => {
-    let currentText = ''
-    const fullText = message.content
-    
-    for (let i = 0; i < fullText.length; i++) {
-      if (!isGenerating) break
-      
-      currentText += fullText.charAt(i)
-      
-      if (i % 50 === 0 || i === fullText.length - 1) {
-        const updatedMessage = {
-          ...message,
-          content: currentText,
-          blocks: extractCodeBlocks(currentText)
-        }
-        
-        setConversation(prev => {
-          const newConversation = [...prev]
-          newConversation[newConversation.length - 1] = updatedMessage
-          return newConversation
-        })
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1))
-    }
-  }
-
-  const copyCodeToClipboard = async (code) => {
-    try {
-      await navigator.clipboard.writeText(code)
-      alert('✅ Código copiado para a área de transferência!')
-    } catch (error) {
-      alert('❌ Erro ao copiar o código')
-    }
-  }
-
-  const clearConversation = () => {
-    if (window.confirm('Tem certeza que deseja limpar toda a conversa?')) {
-      setConversation([])
-      setResponse('')
-      setResponseBlocks([])
-      setInstruction('')
-      setQuestion('')
-      stopGeneration()
-    }
-  }
-
-  const getStatusColor = () => {
-    switch (apiStatus) {
-      case 'online': return '#28a745'
-      case 'error': return '#dc3545'
-      default: return '#ffc107'
-    }
-  }
-
-  const getStatusText = () => {
-    switch (apiStatus) {
-      case 'online': return '✅ Backend Online'
-      case 'error': return '❌ Backend Offline'
-      default: return '🟡 Verificando...'
-    }
-  }
-
-  // Componente para renderizar blocos de código com syntax highlighting
-  const CodeBlock = ({ block }) => {
-    const [isCopied, setIsCopied] = useState(false)
-
-    const handleCopy = async () => {
-      await copyCodeToClipboard(block.content)
-      setIsCopied(true)
-      setTimeout(() => setIsCopied(false), 2000)
-    }
-
-    const highlightedCode = highlightSyntax(block.content, block.language)
-
-    return (
-      <div className="code-block">
-        <div className="code-header">
-          <span className="code-language">
-            {block.language === 'text' ? '📄 Texto' : 
-             block.language === 'python' ? '🐍 Python' :
-             block.language === 'javascript' ? '⚡ JavaScript' :
-             block.language === 'typescript' ? '🔷 TypeScript' :
-             block.language === 'java' ? '☕ Java' :
-             block.language === 'go' ? '🐹 Go' :
-             block.language === 'rust' ? '🦀 Rust' :
-             block.language === 'php' ? '🐘 PHP' :
-             block.language === 'csharp' ? '💚 C#' :
-             block.language === 'ruby' ? '♦️ Ruby' :
-             block.language === 'swift' ? '🕊 Swift' :
-             block.language === 'kotlin' ? '🔶 Kotlin' :
-             `📝 ${block.language}`}
-          </span>
-          <button 
-            className={`copy-btn ${isCopied ? 'copied' : ''}`}
-            onClick={handleCopy}
-          >
-            {isCopied ? '✅ Copiado!' : '📋 Copiar'}
-          </button>
-        </div>
-        <pre className="code-content">
-          <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
-        </pre>
-      </div>
-    )
-  }
-
-  // Componente para renderizar mensagens da conversa
-  const Message = ({ message }) => {
-    if (message.type === 'user') {
-      return (
-        <div className="message user-message">
-          <div className="message-header">
-            <span className="message-avatar">👤</span>
-            <span className="message-info">Você • {message.language || 'Pergunta'}</span>
-          </div>
-          <div className="message-content">
-            {message.content}
-          </div>
-        </div>
-      )
-    }
-
-    if (message.type === 'assistant') {
-      return (
-        <div className="message assistant-message">
-          <div className="message-header">
-            <span className="message-avatar">🤖</span>
-            <span className="message-info">SAAS Developer AI</span>
-          </div>
-          <div className="message-content">
-            {message.blocks && message.blocks.length > 0 ? (
-              message.blocks.map((block, index) =>
-                block.type === 'text' ? (
-                  <div key={index} className="text-block">
-                    {block.content}
-                  </div>
-                ) : (
-                  <CodeBlock key={block.id} block={block} />
-                )
-              )
-            ) : (
-              <div className="text-block">
-                {message.content}
-              </div>
-            )}
-          </div>
-        </div>
-      )
-    }
-
-    if (message.type === 'error') {
-      return (
-        <div className="message error-message">
-          <div className="message-header">
-            <span className="message-avatar">❌</span>
-            <span className="message-info">Erro</span>
-          </div>
-          <div className="message-content">
-            {message.content}
-          </div>
-        </div>
-      )
-    }
-
-    return null
-  }
+  const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || [];
 
   return (
-    <div className={`app ${darkMode ? 'dark-theme' : 'light-theme'}`}>
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-left">
-          <button 
-            className="sidebar-toggle"
-            onClick={toggleSidebar}
-            title={sidebarVisible ? 'Ocultar menu' : 'Mostrar menu'}
-          >
-            {sidebarVisible ? '◀️' : '▶️'}
+    <div className="app deepseek-layout">
+      {/* Sidebar - Histórico de Chats */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <button className="new-chat-btn" onClick={createNewChat}>
+            <span className="btn-icon">+</span>
+            Novo Chat
           </button>
-          <h1>🚀 SAAS Developer AI</h1>
-          <span className="subtitle">Code • Generate • Deploy</span>
         </div>
-        <div className="header-right">
-          <div className="status-badge" style={{ backgroundColor: getStatusColor() }}>
-            {getStatusText()}
+        
+        <div className="chat-history">
+          {chatHistory.map(chat => (
+            <ChatHistoryItem
+              key={chat.id}
+              chat={chat}
+              isActive={currentChat === chat.id}
+              onClick={() => loadChat(chat.id)}
+            />
+          ))}
+          
+          {chatHistory.length === 0 && (
+            <div className="empty-history">
+              <div className="empty-icon">💬</div>
+              <p>Nenhum chat anterior</p>
+            </div>
+          )}
+        </div>
+        
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">👤</div>
+            <span className="user-name">Usuário</span>
           </div>
-          <button className="theme-toggle-btn" onClick={toggleDarkMode}>
-            {darkMode ? '☀️' : '🌙'}
-          </button>
         </div>
-      </header>
+      </div>
 
-      <div className="main-container">
-        {/* Sidebar */}
-        {sidebarVisible && (
-          <div className="sidebar">
-            <div className="sidebar-section">
-              <h3>🎯 Linguagens</h3>
-              <div className="languages-list">
-                {AVAILABLE_LANGUAGES.map((lang) => (
-                  <button
-                    key={lang.id}
-                    className={`lang-btn ${language === lang.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setLanguage(lang.id)
-                      setFramework('')
-                    }}
-                  >
-                    <span className="lang-icon">{lang.icon}</span>
-                    <span className="lang-name">{lang.name}</span>
-                    {lang.popular && <span className="popular-dot"></span>}
-                  </button>
+      {/* Área Principal */}
+      <div className="main-content">
+        {/* Área de Conversação */}
+        <div className="conversation-area">
+          {conversation.length === 0 ? (
+            <div className="empty-conversation">
+              <div className="welcome-icon">🚀</div>
+              <h2>SAAS Developer AI</h2>
+              <p>Comece digitando uma instrução para gerar código...</p>
+            </div>
+          ) : (
+            <div className="messages-container">
+              {conversation.map((message) => (
+                <Message key={message.id} message={message} />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Sticky - EXATAMENTE COMO DEEPSEEK */}
+        <div className="sticky-input-container" ref={stickyInputRef}>
+          <div className="input-wrapper">
+            {/* Opções de Resposta */}
+            <div className="response-options-bar">
+              <div className="options-label">Incluir na resposta:</div>
+              <div className="options-list">
+                {RESPONSE_OPTIONS.map(option => (
+                  <label key={option.id} className="option-checkbox" title={option.description}>
+                    <input
+                      type="checkbox"
+                      checked={responseOptions[option.id]}
+                      onChange={() => toggleResponseOption(option.id)}
+                    />
+                    <span className="option-text">{option.name}</span>
+                  </label>
                 ))}
               </div>
             </div>
 
-            <div className="sidebar-section">
-              <h3>⚡ Templates</h3>
-              <div className="templates-list">
-                {QUICK_TEMPLATES.map((template) => (
-                  <button
-                    key={template.id}
-                    className="template-btn"
-                    onClick={() => applyTemplate(template)}
-                  >
-                    {template.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content Area */}
-        <div className={`main-content ${!sidebarVisible ? 'expanded' : ''}`}>
-          {/* Conversation Area */}
-          <div className="conversation-area">
-            <div className="conversation-header">
-              <h3>💬 Conversa</h3>
-              <div className="conversation-controls">
-                <span className="conversation-count">{conversation.length} mensagens</span>
-                {conversation.length > 0 && (
-                  <button className="clear-btn" onClick={clearConversation}>
-                    🗑️ Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="conversation-messages">
-              {conversation.length === 0 ? (
-                <div className="empty-conversation">
-                  <div className="empty-icon">💭</div>
-                  <h4>Nenhuma conversa ainda</h4>
-                  <p>Faça uma pergunta ou solicite um código para começar!</p>
-                </div>
-              ) : (
-                conversation.map((message, index) => (
-                  <Message key={index} message={message} />
-                ))
-              )}
-              <div ref={responseEndRef} />
-            </div>
-          </div>
-
-          {/* STICKY INPUT AREA - SEMPRE VISÍVEL E NA ORDEM CORRETA */}
-          <div className="sticky-input-area" ref={stickyInputRef}>
-            <div className="input-container">
-              {/* 1. MODE SELECTOR - SEMPRE VISÍVEL */}
-              <div className="mode-selector">
-                <button 
-                  className={`mode-btn ${mode === 'develop' ? 'active' : ''}`}
-                  onClick={() => setMode('develop')}
-                >
-                  💻 Desenvolver
-                </button>
-                <button 
-                  className={`mode-btn ${mode === 'ask' ? 'active' : ''}`}
-                  onClick={() => setMode('ask')}
-                >
-                  ❓ Consultor
-                </button>
-              </div>
-
-              {/* 2. FRAMEWORK SELECTOR - SEMPRE VISÍVEL (apenas no modo develop) */}
-              {mode === 'develop' && (
-                <div className="framework-selector">
+            {/* Área Principal do Input */}
+            <div className="main-input-area">
+              {/* Seletores */}
+              <div className="input-config">
+                <div className="config-group">
                   <select 
-                    value={framework} 
-                    onChange={(e) => setFramework(e.target.value)}
-                    className="framework-select"
+                    value={mode} 
+                    onChange={(e) => setMode(e.target.value)}
+                    className="config-select"
                   >
-                    <option value="">Framework (opcional)</option>
-                    {availableFrameworks.map((fw) => (
-                      <option key={fw} value={fw}>{fw}</option>
+                    <option value="develop">💻 Modo Desenvolvedor</option>
+                    <option value="ask">❓ Modo Consultor</option>
+                  </select>
+                </div>
+                
+                <div className="config-group">
+                  <select 
+                    value={language} 
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="config-select"
+                  >
+                    {AVAILABLE_LANGUAGES.map(lang => (
+                      <option key={lang.id} value={lang.id}>
+                        {lang.icon} {lang.name}
+                      </option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              {/* 3. INPUT AREA - SEMPRE VISÍVEL */}
-              <div className="input-area">
+                {mode === 'develop' && (
+                  <div className="config-group">
+                    <select 
+                      value={framework} 
+                      onChange={(e) => setFramework(e.target.value)}
+                      className="config-select"
+                    >
+                      <option value="">Framework (opcional)</option>
+                      {availableFrameworks.map(fw => (
+                        <option key={fw} value={fw}>{fw}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Textarea e Botões */}
+              <div className="input-controls">
                 <textarea
-                  ref={inputAreaRef}
-                  value={mode === 'develop' ? instruction : question}
-                  onChange={(e) => mode === 'develop' ? setInstruction(e.target.value) : setQuestion(e.target.value)}
+                  ref={inputRef}
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
                   placeholder={
                     mode === 'develop' 
                       ? `Descreva o código que você precisa em ${LANGUAGE_THEMES[language]?.name}...`
@@ -798,57 +616,39 @@ INSTRUÇÃO: ${userInput}
                   }
                   rows="3"
                   disabled={loading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      developCode();
+                    }
+                  }}
                 />
                 
-                <div className="input-actions">
-                  <div className="action-controls">
-                    <label className="control-item">
-                      <input
-                        type="checkbox"
-                        checked={typingAnimation}
-                        onChange={(e) => setTypingAnimation(e.target.checked)}
-                      />
-                      <span>Animação</span>
-                    </label>
-                  </div>
-                  
-                  <div className="action-buttons">
-                    {isGenerating ? (
+                <div className="input-buttons">
+                  {isGenerating ? (
+                    <>
                       <button 
-                        className="stop-btn"
+                        className="control-btn pause-btn"
+                        onClick={togglePause}
+                        disabled={!isGenerating}
+                      >
+                        {isPaused ? '▶️ Continuar' : '⏸️ Pausar'}
+                      </button>
+                      <button 
+                        className="control-btn stop-btn"
                         onClick={stopGeneration}
                       >
                         ⏹️ Parar
                       </button>
-                    ) : (
-                      <button 
-                        className="generate-btn"
-                        onClick={mode === 'develop' ? developCode : askQuestion}
-                        disabled={loading || (mode === 'develop' ? !instruction.trim() : !question.trim())}
-                      >
-                        {mode === 'develop' ? '🚀 Gerar Código' : '🤔 Perguntar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. RESPONSE OPTIONS - ABAIXO DO INPUT */}
-              <div className="response-options">
-                <div className="options-header">
-                  <span>📋 Opções de Resposta:</span>
-                </div>
-                <div className="options-grid">
-                  {RESPONSE_OPTIONS.map(option => (
-                    <label key={option.id} className="option-item" title={option.description}>
-                      <input
-                        type="checkbox"
-                        checked={responseOptions[option.id]}
-                        onChange={() => toggleResponseOption(option.id)}
-                      />
-                      <span>{option.name}</span>
-                    </label>
-                  ))}
+                    </>
+                  ) : (
+                    <button 
+                      className="control-btn send-btn"
+                      onClick={developCode}
+                      disabled={!instruction.trim() || loading}
+                    >
+                      {loading ? '⏳ Gerando...' : '🚀 Enviar'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -856,7 +656,7 @@ INSTRUÇÃO: ${userInput}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
