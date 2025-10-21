@@ -46,6 +46,15 @@ const FRAMEWORKS_BY_LANGUAGE = {
   kotlin: ['Spring', 'Ktor', 'Micronaut', 'Vert.x', 'Nenhum']
 };
 
+const RESPONSE_OPTIONS = [
+  { id: 'code', name: '💻 Código', description: 'Somente o código sem explicações' },
+  { id: 'explanation', name: '💡 Explicação', description: 'Explicação do que foi implementado' },
+  { id: 'usage', name: '🚀 Uso', description: 'Como usar o código gerado' },
+  { id: 'improvements', name: '🔧 Melhorias', description: 'Sugestões de melhorias e extensões' },
+  { id: 'critical', name: '⚠️ Crítico', description: 'Atenções e cuidados importantes' },
+  { id: 'examples', name: '📝 Exemplos', description: 'Exemplos complementares de uso' }
+];
+
 // ===== COMPONENTES =====
 const CodeBlock = React.memo(({ block, onExplainCode }) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -79,21 +88,21 @@ const CodeBlock = React.memo(({ block, onExplainCode }) => {
   const highlightedCode = highlightSyntax(block.content, block.language);
 
   return (
-    <div className="code-block">
-      <div className="code-header">
+    <div className="code-block my-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <span className="text-sm">{LANGUAGE_THEMES[block.language]?.icon || '📝'}</span>
-          <span className="text-sm font-medium text-gray-300">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {LANGUAGE_THEMES[block.language]?.name || block.language}
           </span>
-          <span className="text-xs bg-primary-600 text-white px-2 py-1 rounded">
+          <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
             #{block.id.toString().padStart(3, '0')}
           </span>
         </div>
         <div className="flex gap-1">
           <button
             onClick={handleExplain}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
             title="Explicar este código"
           >
             <span>💡</span>
@@ -103,8 +112,8 @@ const CodeBlock = React.memo(({ block, onExplainCode }) => {
             onClick={handleCopy}
             className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
               isCopied 
-                ? 'bg-green-600 text-white' 
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                ? 'bg-green-500 text-white' 
+                : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
             }`}
             title="Copiar código"
           >
@@ -113,7 +122,7 @@ const CodeBlock = React.memo(({ block, onExplainCode }) => {
           </button>
           <button
             onClick={handleDownload}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
             title="Download do código"
           >
             <span>⬇️</span>
@@ -122,7 +131,7 @@ const CodeBlock = React.memo(({ block, onExplainCode }) => {
         </div>
       </div>
       <div className="max-h-96 overflow-auto">
-        <pre className="code-content">
+        <pre className="code-content p-4 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-mono text-sm">
           <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
         </pre>
       </div>
@@ -133,14 +142,16 @@ const CodeBlock = React.memo(({ block, onExplainCode }) => {
 const Message = React.memo(({ message, onExplainCode }) => {
   if (message.type === 'user') {
     return (
-      <div className="message-user">
-        <div className="flex-1 max-w-3xl">
-          <div className="bg-primary-600 text-white p-4 rounded-2xl rounded-br-md">
-            <div className="whitespace-pre-wrap">{message.content}</div>
+      <div className="flex justify-end mb-6">
+        <div className="flex items-start gap-3 max-w-4xl">
+          <div className="flex-1">
+            <div className="bg-blue-500 text-white p-4 rounded-2xl rounded-br-md">
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            </div>
           </div>
-        </div>
-        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-          👤
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+            👤
+          </div>
         </div>
       </div>
     );
@@ -148,26 +159,28 @@ const Message = React.memo(({ message, onExplainCode }) => {
 
   if (message.type === 'assistant') {
     return (
-      <div className="message-assistant">
-        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-          🤖
-        </div>
-        <div className="flex-1 max-w-3xl">
-          {message.blocks && message.blocks.length > 0 ? (
-            message.blocks.map((block, index) =>
-              block.type === 'text' ? (
-                <div key={index} className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap mb-4 leading-relaxed">
-                  {block.content}
-                </div>
-              ) : (
-                <CodeBlock key={block.id} block={block} onExplainCode={onExplainCode} />
+      <div className="flex mb-6">
+        <div className="flex items-start gap-3 max-w-4xl">
+          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+            🤖
+          </div>
+          <div className="flex-1">
+            {message.blocks && message.blocks.length > 0 ? (
+              message.blocks.map((block, index) =>
+                block.type === 'text' ? (
+                  <div key={index} className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap mb-4 leading-relaxed">
+                    {block.content}
+                  </div>
+                ) : (
+                  <CodeBlock key={block.id} block={block} onExplainCode={onExplainCode} />
+                )
               )
-            )
-          ) : (
-            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-              {message.content}
-            </div>
-          )}
+            ) : (
+              <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                {message.content}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -178,24 +191,12 @@ const Message = React.memo(({ message, onExplainCode }) => {
 
 const ChatHistoryItem = ({ chat, isActive, onClick, onRename, onPin, onShare, onDelete }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setShowMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <div 
       className={`group relative p-3 rounded-lg cursor-pointer transition-colors ${
         isActive 
-          ? 'bg-primary-100 border border-primary-300 dark:bg-primary-900 dark:border-primary-700' 
+          ? 'bg-blue-50 border border-blue-200 dark:bg-blue-900 dark:border-blue-700' 
           : 'hover:bg-gray-100 dark:hover:bg-gray-800'
       }`}
       onClick={onClick}
@@ -224,7 +225,6 @@ const ChatHistoryItem = ({ chat, isActive, onClick, onRename, onPin, onShare, on
         </div>
       </div>
       
-      {/* Menu de Ações */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={(e) => {
@@ -237,10 +237,7 @@ const ChatHistoryItem = ({ chat, isActive, onClick, onRename, onPin, onShare, on
         </button>
         
         {showMenu && (
-          <div 
-            ref={menuRef}
-            className="absolute right-0 top-6 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 py-1"
-          >
+          <div className="absolute right-0 top-6 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 py-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -379,7 +376,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   
-  // Opções de resposta - agora funcionais
+  // Opções de resposta
   const [responseOptions, setResponseOptions] = useState({
     code: true,
     explanation: false,
@@ -413,9 +410,7 @@ function App() {
     }));
   };
 
-  // Função para construir prompt baseado nas opções selecionadas - CORRIGIDA
   const buildPrompt = (userInput, language, framework, conversationHistory = []) => {
-    // Se só código foi selecionado, retornar prompt minimalista
     if (responseOptions.code && Object.values(responseOptions).filter(v => v).length === 1) {
       return `Gere APENAS o código ${language}${framework ? ` com ${framework}` : ''} para: ${userInput}. Nada mais.`;
     }
@@ -499,7 +494,6 @@ function App() {
         const finalConversation = [...updatedConversation, assistantMessage];
         setConversation(finalConversation);
         
-        // Atualizar histórico de chats
         updateChatHistory(userMessage.content, data.result, finalConversation);
       } else {
         throw new Error(data.error || 'Erro desconhecido do servidor');
@@ -551,7 +545,6 @@ function App() {
 
   const togglePause = () => {
     setIsPaused(!isPaused);
-    // Lógica de pausa/continuação pode ser implementada com streaming
   };
 
   const createNewChat = () => {
@@ -569,7 +562,6 @@ function App() {
     }
   };
 
-  // Funções do menu de chat
   const handleRenameChat = (chatId) => {
     const chat = chatHistory.find(c => c.id === chatId);
     if (chat) {
@@ -637,8 +629,6 @@ function App() {
   };
 
   const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || [];
-
-  // Chats ordenados (pinned first)
   const sortedChatHistory = [...chatHistory].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
@@ -649,21 +639,18 @@ function App() {
     <div className={`flex h-screen bg-white dark:bg-gray-900 transition-colors ${darkMode ? 'dark' : ''}`}>
       {/* Sidebar */}
       {sidebarOpen && (
-        <div className="w-80 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-          {/* Header da Sidebar */}
+        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  {/* SUA LOGO AQUI */}
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
                   🚀
                 </div>
                 <span className="font-semibold text-gray-900 dark:text-white">SAAS Developer</span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
-                title="Fechar sidebar"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
               >
                 ←
               </button>
@@ -671,14 +658,13 @@ function App() {
             
             <button
               onClick={createNewChat}
-              className="w-full bg-primary-500 hover:bg-primary-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
               <span className="text-lg">+</span>
               Novo Chat
             </button>
           </div>
           
-          {/* Lista de Chats */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-2">
               {sortedChatHistory.map(chat => (
@@ -703,7 +689,6 @@ function App() {
             </div>
           </div>
           
-          {/* Footer da Sidebar */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 p-2">
               <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center text-sm font-medium">
@@ -715,17 +700,16 @@ function App() {
         </div>
       )}
 
-      {/* Área Principal */}
-      <div className="flex-1 flex flex-col">
+      {/* Área Principal - LAYOUT CORRETO */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
-                  title="Abrir sidebar"
                 >
                   ☰
                 </button>
@@ -739,7 +723,6 @@ function App() {
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors text-gray-500 dark:text-gray-400"
-                title={darkMode ? 'Modo Claro' : 'Modo Escuro'}
               >
                 {darkMode ? '☀️' : '🌙'}
               </button>
@@ -775,131 +758,128 @@ function App() {
           )}
         </div>
 
-        {/* Input Sticky */}
-        <div className="sticky-input-container">
-          <div className="max-w-4xl mx-auto">
-            {/* Opções de Resposta - Agora Discretas */}
-            <div className="mb-3 flex items-center gap-4 text-sm">
-              <span className="text-gray-600 dark:text-gray-400 font-medium">Incluir:</span>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(responseOptions).map(([key, value]) => (
-                  <label key={key} className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={value}
-                      onChange={() => toggleResponseOption(key)}
-                      className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-                    />
-                    <span className="text-xs text-gray-700 dark:text-gray-300">
-                      {key === 'code' && '💻'}
-                      {key === 'explanation' && '💡'} 
-                      {key === 'usage' && '🚀'}
-                      {key === 'improvements' && '🔧'}
-                      {key === 'critical' && '⚠️'}
-                      {key === 'examples' && '📝'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Área Principal do Input */}
+        {/* Input Sticky - LAYOUT CORRETO DEEPSEEK */}
+        <div className="sticky-input-container bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+          <div className="max-w-6xl mx-auto px-4">
             <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden">
-              {/* Configurações */}
-              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750 flex flex-wrap gap-3">
-                <select 
-                  value={mode} 
-                  onChange={(e) => setMode(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="develop">💻 Desenvolver</option>
-                  <option value="ask">❓ Consultar</option>
-                </select>
-                
-                <select 
-                  value={language} 
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {AVAILABLE_LANGUAGES.map(lang => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.icon} {lang.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex">
+                {/* Área Principal do Input */}
+                <div className="flex-1 p-4">
+                  <div className="flex gap-3 mb-3">
+                    <select 
+                      value={mode} 
+                      onChange={(e) => setMode(e.target.value)}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="develop">💻 Desenvolver</option>
+                      <option value="ask">❓ Consultar</option>
+                    </select>
+                    
+                    <select 
+                      value={language} 
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {AVAILABLE_LANGUAGES.map(lang => (
+                        <option key={lang.id} value={lang.id}>
+                          {lang.icon} {lang.name}
+                        </option>
+                      ))}
+                    </select>
 
-                {mode === 'develop' && (
-                  <select 
-                    value={framework} 
-                    onChange={(e) => setFramework(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="">Framework (opcional)</option>
-                    {availableFrameworks.map(fw => (
-                      <option key={fw} value={fw}>{fw}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Textarea e Botões */}
-              <div className="p-4">
-                <div className="flex gap-3">
-                  <textarea
-                    ref={inputRef}
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    placeholder={
-                      mode === 'develop' 
-                        ? `Descreva o código que você precisa em ${LANGUAGE_THEMES[language]?.name}... (Ctrl+Enter para enviar)`
-                        : "Faça sua pergunta sobre programação... (Ctrl+Enter para enviar)"
-                    }
-                    rows="3"
-                    disabled={loading}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        developCode();
-                      }
-                    }}
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  
-                  <div className="flex flex-col gap-2">
-                    {isGenerating ? (
-                      <>
-                        <button 
-                          onClick={togglePause}
-                          disabled={!isGenerating}
-                          className="flex items-center gap-2 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
-                        >
-                          {isPaused ? '▶️' : '⏸️'}
-                        </button>
-                        <button 
-                          onClick={stopGeneration}
-                          className="flex items-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
-                        >
-                          ⏹️
-                        </button>
-                      </>
-                    ) : (
-                      <button 
-                        onClick={developCode}
-                        disabled={!instruction.trim() || loading}
-                        className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-primary-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+                    {mode === 'develop' && (
+                      <select 
+                        value={framework} 
+                        onChange={(e) => setFramework(e.target.value)}
+                        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        {loading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Gerando...
-                          </>
-                        ) : (
-                          <>
-                            <span>🚀</span>
-                            Enviar
-                          </>
-                        )}
-                      </button>
+                        <option value="">Framework (opcional)</option>
+                        {availableFrameworks.map(fw => (
+                          <option key={fw} value={fw}>{fw}</option>
+                        ))}
+                      </select>
                     )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <textarea
+                      ref={inputRef}
+                      value={instruction}
+                      onChange={(e) => setInstruction(e.target.value)}
+                      placeholder={
+                        mode === 'develop' 
+                          ? `Descreva o código que você precisa em ${LANGUAGE_THEMES[language]?.name}... (Ctrl+Enter para enviar)`
+                          : "Faça sua pergunta sobre programação... (Ctrl+Enter para enviar)"
+                      }
+                      rows="3"
+                      disabled={loading}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                          developCode();
+                        }
+                      }}
+                      className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    
+                    <div className="flex flex-col gap-2">
+                      {isGenerating ? (
+                        <>
+                          <button 
+                            onClick={togglePause}
+                            disabled={!isGenerating}
+                            className="flex items-center gap-2 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+                          >
+                            {isPaused ? '▶️' : '⏸️'}
+                          </button>
+                          <button 
+                            onClick={stopGeneration}
+                            className="flex items-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                          >
+                            ⏹️
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={developCode}
+                          disabled={!instruction.trim() || loading}
+                          className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
+                        >
+                          {loading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Gerando...
+                            </>
+                          ) : (
+                            <>
+                              <span>🚀</span>
+                              Enviar
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opções de Resposta - LADO DIREITO */}
+                <div className="w-64 bg-gray-50 dark:bg-gray-750 border-l border-gray-200 dark:border-gray-700 p-4">
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Incluir na resposta:
+                  </div>
+                  <div className="space-y-2">
+                    {RESPONSE_OPTIONS.map(option => (
+                      <label key={option.id} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={responseOptions[option.id]}
+                          onChange={() => toggleResponseOption(option.id)}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {option.name}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -919,7 +899,7 @@ function App() {
               type="text"
               value={newChatName}
               onChange={(e) => setNewChatName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Nome do chat..."
               autoFocus
             />
@@ -932,7 +912,7 @@ function App() {
               </button>
               <button
                 onClick={confirmRename}
-                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
               >
                 Salvar
               </button>
