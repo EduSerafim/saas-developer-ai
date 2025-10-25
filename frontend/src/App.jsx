@@ -359,87 +359,94 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
   };
 
   const developCode = async () => {
-    if (!instruction.trim()) return;
+  if (!instruction.trim()) return;
 
-    setLoading(true);
-    setIsGenerating(true);
+  setLoading(true);
+  setIsGenerating(true);
+  setInstruction(''); // Limpa o input imediatamente
+  
+  const userMessage = {
+    type: 'user',
+    content: instruction.trim(),
+    language: isConsultor ? null : language,
+    isConsultor: isConsultor,
+    timestamp: new Date(),
+    id: Date.now().toString()
+  };
+  
+  const updatedConversation = [...conversation, userMessage];
+  setConversation(updatedConversation);
+  
+  const controller = new AbortController();
+  setAbortController(controller);
+
+  try {
+    const prompt = buildPrompt(userMessage.content, userMessage.language);
     
-    const userMessage = {
-      type: 'user',
-      content: instruction.trim(),
-      language: isConsultor ? null : language,
-      isConsultor: isConsultor,
+    console.log('📤 Enviando prompt:', prompt);
+    
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: prompt,
+        options: responseOptions,
+        language: isConsultor ? null : language,
+        isConsultor: isConsultor
+      }),
+      signal: controller.signal
+    });
+
+    // ⚠️ AGUARDA A RESPOSTA COMPLETA ANTES DE LIBERAR
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('✅ Resposta recebida:', data);
+    
+    const assistantMessage = {
+      type: 'assistant',
+      content: data.response,
+      blocks: extractCodeBlocks(data.response),
+      timestamp: new Date(),
+      id: (Date.now() + 1).toString()
+    };
+    
+    // ⚠️ SÓ DEPOIS DE PROCESSAR A RESPOSTA LIBERA O INPUT
+    setConversation(prev => [...prev, assistantMessage]);
+    
+    // Atualizar histórico
+    if (currentChat) {
+      setChatHistory(prev => prev.map(chat => 
+        chat.id === currentChat.id 
+          ? { ...chat, messages: [...updatedConversation, assistantMessage] }
+          : chat
+      ));
+    }
+    
+  } catch (error) {
+    console.error('Erro na requisição:', error);
+    
+    const errorMessage = {
+      type: 'error',
+      content: error.name === 'AbortError' 
+        ? '⏹️ Geração interrompida pelo usuário.'
+        : `❌ Erro: ${error.message}`,
       timestamp: new Date(),
       id: Date.now().toString()
     };
     
-    const updatedConversation = [...conversation, userMessage];
-    setConversation(updatedConversation);
-    setInstruction('');
-    
-    const controller = new AbortController();
-    setAbortController(controller);
-
-    try {
-      const prompt = buildPrompt(userMessage.content, userMessage.language);
-      
-      console.log('📤 Enviando prompt:', prompt);
-      
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: prompt,
-          options: responseOptions,
-          language: isConsultor ? null : language,
-          isConsultor: isConsultor
-        }),
-        signal: controller.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      const assistantMessage = {
-        type: 'assistant',
-        content: data.response,
-        blocks: extractCodeBlocks(data.response),
-        timestamp: new Date(),
-        id: (Date.now() + 1).toString()
-      };
-      
-      setConversation(prev => [...prev, assistantMessage]);
-      
-      // Atualizar histórico
-      if (currentChat) {
-        setChatHistory(prev => prev.map(chat => 
-          chat.id === currentChat.id 
-            ? { ...chat, messages: [...updatedConversation, assistantMessage] }
-            : chat
-        ));
-      }
-      
-    } catch (error) {
-      console.error('Erro:', error);
-      
-      const errorMessage = {
-        type: 'error',
-        content: error.name === 'AbortError' 
-          ? '⏹️ Geração interrompida pelo usuário.'
-          : `❌ Erro: ${error.message}`,
-        timestamp: new Date(),
-        id: Date.now().toString()
-      };
-      
-      setConversation(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-      setIsGenerating(false);
-    }
-  };
+    setConversation(prev => [...prev, errorMessage]);
+  } finally {
+    // ⚠️ SÓ AQUI LIBERA O BOTÃO E INPUT
+    setLoading(false);
+    setIsGenerating(false);
+    setAbortController(null);
+  }
+};
 
   const stopGeneration = () => {
     if (abortController) {
