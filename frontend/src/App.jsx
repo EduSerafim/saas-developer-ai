@@ -659,7 +659,7 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
                     developCode();
                   }
                 }}
-                className="flex-1 max-w-[calc(100%-120px)] px-4 py-3 border border-gray-600 rounded-lg bg-[#2C2C2E] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="flex-1 max-w-[600px] px-4 py-3 border border-gray-600 rounded-lg bg-[#2C2C2E] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
               
               <div className="flex flex-col gap-2">
