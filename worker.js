@@ -18,12 +18,11 @@ export default {
 
     try {
       // Rota principal - health check
-      if (pathname === '/' || pathname === '/api' || pathname === '/health') {
+      if (pathname === '/' || pathname === '/health') {
         return new Response(
           JSON.stringify({
             message: '🚀 SAAS Developer AI API - Cloudflare Workers',
             status: 'online',
-            endpoints: ['POST /', '/health'],
             timestamp: new Date().toISOString()
           }),
           { 
@@ -36,8 +35,8 @@ export default {
         );
       }
 
-      // Rota principal para chat (compatível com frontend atual)
-      if ((pathname === '/' || pathname === '/api/chat') && request.method === 'POST') {
+      // Rota principal para chat
+      if (request.method === 'POST') {
         return await handleChatRequest(request, env, corsHeaders);
       }
 
@@ -86,7 +85,6 @@ async function handleChatRequest(request, env, corsHeaders) {
     console.log('📦 Recebido request:', { 
       isConsultor, 
       language, 
-      options,
       messageLength: message.length 
     });
 
@@ -104,15 +102,23 @@ async function handleChatRequest(request, env, corsHeaders) {
     console.log('📤 Prompt construído:', prompt.substring(0, 200) + '...');
 
     const responseText = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
+
+    // ⚠️ VERIFICAÇÃO CRÍTICA DA RESPOSTA
+    console.log('🤖 Resposta da DeepSeek (primeiros 500 chars):', responseText?.substring(0, 500));
     
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('Resposta vazia da API DeepSeek');
+    }
+
     return new Response(
       JSON.stringify({ 
-        response: responseText,
+        response: responseText, // ⚠️ GARANTIDO: campo 'response'
         codeId: `#${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         debug: { 
           message: 'API call successful',
           isConsultor: isConsultor,
-          language: language
+          language: language,
+          responseLength: responseText.length
         }
       }),
       { 
@@ -173,7 +179,7 @@ NÃO inclua:
 Apenas o código puro e funcional.`;
   }
 
-  // Se nenhuma opção selecionada, padrão para código apenas
+  // Se nenhuma opção selecionada, padrão para código
   if (selectedOptions.length === 0) {
     return `Gere APENAS o código ${language} para: ${userMessage}. 
 
@@ -193,13 +199,6 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
   if (options.explanation) prompt += `• Explicação detalhada do que foi implementado\n`;
   if (options.usage) prompt += `• Instruções claras de como usar\n`;
   if (options.improvements) prompt += `• Possíveis melhorias e extensões\n`;
-
-  // Adicionar instruções específicas para MQL5 e NTSL
-  if (language === 'mq5') {
-    prompt += `\nPARA MQL5: Gere código para MetaTrader 5 (Expert Advisor/Indicator) com a estrutura correta da plataforma. Inclua #property, inputs, e funções padrão como OnInit, OnTick, etc.`;
-  } else if (language === 'ntsl') {
-    prompt += `\nPARA NTSL: Gere código para ProfitChat (Nelogica) baseado em C++ com a sintaxe específica da plataforma.`;
-  }
 
   prompt += `\n\nNÃO inclua nada além do que foi solicitado acima.`;
 
@@ -283,11 +282,17 @@ async function callDeepSeekAPI(messages, apiKey) {
     const data = await response.json();
     console.log('✅ Resposta da API recebida com sucesso');
     
-    if (!data.choices || !data.choices[0]) {
-      throw new Error('Resposta inválida da API DeepSeek - nenhuma choice disponível');
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Resposta inválida da API DeepSeek - estrutura incorreta');
     }
 
-    return data.choices[0].message.content;
+    const responseContent = data.choices[0].message.content;
+    
+    if (!responseContent || responseContent.trim() === '') {
+      throw new Error('Resposta vazia da API DeepSeek');
+    }
+
+    return responseContent;
 
   } catch (error) {
     clearTimeout(timeoutId);
