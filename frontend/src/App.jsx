@@ -576,10 +576,10 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
 
       {/* Input Sticky - LAYOUT CORRIGIDO */}
       <div className="sticky bottom-0 bg-[#1B1B1C] border-t border-gray-800">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-4xl mx-auto px-6 py-4">
           
           {/* Opções acima do input */}
-          <div className="mb-4 bg-[#2C2C2E] rounded-lg p-4">
+          <div className="mb-4 bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-3">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
@@ -641,7 +641,7 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
           </div>
 
           {/* Input Principal - Box separado com largura reduzida */}
-          <div className="bg-[#2C2C2E] rounded-lg p-4">
+          <div className="bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
             <div className="flex gap-3">
               <input
                 ref={inputRef}
