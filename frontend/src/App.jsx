@@ -397,25 +397,30 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
       signal: controller.signal
     });
 
-    // ⚠️ AGUARDA A RESPOSTA COMPLETA ANTES DE LIBERAR
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
     
-    console.log('✅ Resposta recebida:', data);
+    console.log('✅ Resposta completa:', data);
     
+    // ⚠️ CORREÇÃO CRÍTICA: Extrair o conteúdo correto da resposta
+    const responseContent = data.response || data.answer || data.result || 
+                           (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+                           'Resposta não disponível';
+
+    console.log('📝 Conteúdo extraído:', responseContent);
+
     const assistantMessage = {
       type: 'assistant',
-      content: data.response,
-      blocks: extractCodeBlocks(data.response),
+      content: responseContent,
+      blocks: extractCodeBlocks(responseContent),
       timestamp: new Date(),
       id: (Date.now() + 1).toString()
     };
     
-    // ⚠️ SÓ DEPOIS DE PROCESSAR A RESPOSTA LIBERA O INPUT
     setConversation(prev => [...prev, assistantMessage]);
     
     // Atualizar histórico
@@ -441,7 +446,6 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
     
     setConversation(prev => [...prev, errorMessage]);
   } finally {
-    // ⚠️ SÓ AQUI LIBERA O BOTÃO E INPUT
     setLoading(false);
     setIsGenerating(false);
     setAbortController(null);
