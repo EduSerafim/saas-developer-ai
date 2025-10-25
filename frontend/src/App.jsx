@@ -11,13 +11,15 @@ const LANGUAGE_THEMES = {
   java: { name: 'Java', icon: '☕' },
   go: { name: 'Go', icon: '🐹' },
   rust: { name: 'Rust', icon: '🦀' },
-};
-
-const FRAMEWORKS_BY_LANGUAGE = {
-  python: ['Django', 'Flask', 'FastAPI', 'Nenhum'],
-  javascript: ['React', 'Vue', 'Angular', 'Node.js', 'Nenhum'],
-  typescript: ['React', 'Vue', 'Angular', 'Node.js', 'NestJS', 'Nenhum'],
-  java: ['Spring', 'Spring Boot', 'Nenhum'],
+  cpp: { name: 'C++', icon: '⚙️' },
+  php: { name: 'PHP', icon: '🐘' },
+  ruby: { name: 'Ruby', icon: '💎' },
+  html: { name: 'HTML', icon: '🌐' },
+  css: { name: 'CSS', icon: '🎨' },
+  sql: { name: 'SQL', icon: '🗄️' },
+  bash: { name: 'Bash', icon: '💻' },
+  mq5: { name: 'MQL5', icon: '📈' },
+  ntsl: { name: 'NTSL', icon: '💹' }
 };
 
 const RESPONSE_OPTIONS = [
@@ -216,6 +218,24 @@ const highlightSyntax = (code, language) => {
       .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
       .replace(/(\w+)\s*\(/g, '<span class="function">$1</span>(');
   }
+
+  if (language === 'mq5') {
+    return code
+      .replace(/(#property|input|extern|int|double|bool|string|void|return|if|else|for|while)(?=\s)/g, '<span class="keyword">$1</span>')
+      .replace(/(OnInit|OnDeinit|OnTick|OnCalculate)(?=\s*\()/g, '<span class="function">$1</span>')
+      .replace(/(["'])(.*?)\1/g, '<span class="string">$1$2$1</span>')
+      .replace(/\/\/(.*)$/gm, '<span class="comment">//$1</span>')
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>');
+  }
+
+  if (language === 'ntsl') {
+    return code
+      .replace(/(function|var|if|else|for|while|return|class)(?=\s)/g, '<span class="keyword">$1</span>')
+      .replace(/(["'])(.*?)\1/g, '<span class="string">$1$2$1</span>')
+      .replace(/\/\/(.*)$/gm, '<span class="comment">//$1</span>')
+      .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
+      .replace(/(\w+)\s*\(/g, '<span class="function">$1</span>(');
+  }
   
   return code;
 };
@@ -227,68 +247,89 @@ function App() {
   const [chatHistory, setChatHistory] = useState([]);
   const [instruction, setInstruction] = useState('');
   const [language, setLanguage] = useState('python');
-  const [framework, setFramework] = useState('');
-  const [mode, setMode] = useState('develop');
+  const [isConsultor, setIsConsultor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [abortController, setAbortController] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [darkMode, setDarkMode] = useState(true); // TEMA ESCURO POR PADRÃO
 
-  // Opções de resposta - CORRIGIDAS para funcionar
+  // Opções de resposta
   const [responseOptions, setResponseOptions] = useState({
     code: true,
-    explanation: false,
-    usage: false,
-    improvements: false,
+    explanation: true,
+    usage: true,
+    improvements: true,
   });
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Carregar histórico do localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('saas-developer-chats');
+    if (savedHistory) {
+      setChatHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  // Salvar histórico no localStorage
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      localStorage.setItem('saas-developer-chats', JSON.stringify(chatHistory));
+    }
+  }, [chatHistory]);
+
   useEffect(() => {
     scrollToBottom();
   }, [conversation]);
-
-  // TEMA ESCURO FUNCIONANDO - aplica ao HTML
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const toggleResponseOption = (optionId) => {
+    if (isConsultor) return; // Não permite alterar opções no modo consultor
     setResponseOptions(prev => ({
       ...prev,
       [optionId]: !prev[optionId]
     }));
   };
 
-  // FUNÇÃO CORRIGIDA - Respeita REALMENTE as opções
-  const buildPrompt = (userInput, language, framework) => {
+  // FUNÇÃO CORRIGIDA - Respeita REALMENTE as opções e modo consultor
+  const buildPrompt = (userInput, language) => {
+    if (isConsultor) {
+      return `MODO CONSULTOR ATIVADO - APENAS EXPLICAÇÕES TEÓRICAS
+
+Solicitação: ${userInput}
+
+REGRAS ESTRITAS:
+• Forneça APENAS explicações teóricas e conceituais
+• Códigos apenas como exemplos ilustrativos MUITO curtos (máximo 3-5 linhas)
+• NUNCA gere código completo ou funcional
+• Foque em conceitos, fundamentos e boas práticas
+• Seja didático e detalhista
+• Use analogias quando apropriado
+
+Responda em português de forma clara e educada.`;
+    }
+
     const selectedOptions = Object.entries(responseOptions)
       .filter(([_, selected]) => selected)
       .map(([key]) => key);
 
-    // Se só código foi selecionado - ENVIA APENAS CÓDIGO
+    // Se só código foi selecionado - APENAS CÓDIGO
     if (selectedOptions.length === 1 && responseOptions.code) {
-      return `Gere APENAS o código ${language}${framework ? ` com ${framework}` : ''} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
+      return `Gere APENAS o código ${language} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
     }
 
     // Se nenhuma opção selecionada, padrão para código
     if (selectedOptions.length === 0) {
-      return `Gere APENAS o código ${language}${framework ? ` com ${framework}` : ''} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
+      return `Gere APENAS o código ${language} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
     }
 
     // Se múltiplas opções selecionadas
     let prompt = `Instrução: ${userInput}\n\n`;
-    prompt += `Linguagem: ${language}${framework ? `, Framework: ${framework}` : ''}\n\n`;
+    prompt += `Linguagem: ${language}\n\n`;
     prompt += `Forneça SOMENTE:\n`;
 
     if (responseOptions.code) prompt += `• Código completo (em blocos de código)\n`;
@@ -310,8 +351,8 @@ function App() {
     const userMessage = {
       type: 'user',
       content: instruction.trim(),
-      language,
-      framework: framework === 'Nenhum' ? null : framework,
+      language: isConsultor ? null : language,
+      isConsultor: isConsultor,
       timestamp: new Date(),
       id: Date.now().toString()
     };
@@ -324,40 +365,45 @@ function App() {
     setAbortController(controller);
 
     try {
-      const prompt = buildPrompt(userMessage.content, userMessage.language, userMessage.framework);
+      const prompt = buildPrompt(userMessage.content, userMessage.language);
       
       console.log('📤 Enviando prompt:', prompt);
       
-      const response = await fetch(`${API_URL}/api/develop`, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instruction: prompt,
-          language: userMessage.language,
-          framework: userMessage.framework
+          message: prompt,
+          options: responseOptions,
+          language: isConsultor ? null : language,
+          isConsultor: isConsultor
         }),
         signal: controller.signal
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (data.success) {
-        const assistantMessage = {
-          type: 'assistant',
-          content: data.result,
-          blocks: extractCodeBlocks(data.result),
-          timestamp: new Date(),
-          id: (Date.now() + 1).toString()
-        };
-        
-        setConversation(prev => [...prev, assistantMessage]);
-      } else {
-        throw new Error(data.error || 'Erro desconhecido do servidor');
+      const assistantMessage = {
+        type: 'assistant',
+        content: data.response,
+        blocks: extractCodeBlocks(data.response),
+        timestamp: new Date(),
+        id: (Date.now() + 1).toString()
+      };
+      
+      setConversation(prev => [...prev, assistantMessage]);
+      
+      // Atualizar histórico
+      if (currentChat) {
+        setChatHistory(prev => prev.map(chat => 
+          chat.id === currentChat.id 
+            ? { ...chat, messages: [...updatedConversation, assistantMessage] }
+            : chat
+        ));
       }
       
     } catch (error) {
@@ -388,10 +434,23 @@ function App() {
   };
 
   const createNewChat = () => {
+    const newChat = {
+      id: Date.now().toString(),
+      title: 'Novo Chat',
+      messages: [],
+      createdAt: new Date().toISOString()
+    };
+    
+    setCurrentChat(newChat);
     setConversation([]);
-    setCurrentChat(null);
+    setChatHistory(prev => [newChat, ...prev]);
     setInstruction('');
     inputRef.current?.focus();
+  };
+
+  const selectChat = (chat) => {
+    setCurrentChat(chat);
+    setConversation(chat.messages);
   };
 
   const handleExplainCode = (codeId) => {
@@ -400,24 +459,22 @@ function App() {
     inputRef.current?.focus();
   };
 
-  const availableFrameworks = FRAMEWORKS_BY_LANGUAGE[language] || [];
-
   return (
     <div className="flex h-screen bg-gray-900 text-white">
       {/* Sidebar */}
       {sidebarOpen && (
-        <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
-          <div className="p-4 border-b border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold">
+        <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+          <div className="p-3 border-b border-gray-700"> {/* Header reduzido */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-sm">
                   🚀
                 </div>
-                <span className="font-semibold">SAAS Developer</span>
+                <span className="font-semibold text-sm">SAAS Developer</span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400"
+                className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400"
               >
                 ←
               </button>
@@ -425,28 +482,36 @@ function App() {
             
             <button
               onClick={createNewChat}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm"
             >
-              <span className="text-lg">+</span>
+              <span className="text-sm">+</span>
               Novo Chat
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4">
-            {chatHistory.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">💬</div>
-                <p>Nenhum chat anterior</p>
+          <div className="flex-1 overflow-y-auto">
+            {chatHistory.map(chat => (
+              <div
+                key={chat.id}
+                onClick={() => selectChat(chat)}
+                className={`p-3 border-b border-gray-700 cursor-pointer hover:bg-gray-750 transition-colors ${
+                  currentChat?.id === chat.id ? 'bg-gray-750 border-l-4 border-l-blue-500' : ''
+                }`}
+              >
+                <div className="font-medium text-sm truncate">{chat.title}</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {chat.messages.length} mensagens
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
 
       {/* Área Principal */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        {/* Header REDUZIDO */}
+        <header className="bg-gray-800 border-b border-gray-700 px-6 py-2"> {/* Altura reduzida */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {!sidebarOpen && (
@@ -457,23 +522,14 @@ function App() {
                   ☰
                 </button>
               )}
-              <h1 className="text-xl font-semibold">
-                {currentChat ? 'Chat' : 'Novo Chat'}
+              <h1 className="text-lg font-semibold"> {/* Texto menor */}
+                {currentChat ? currentChat.title : 'SAAS Developer AI'}
               </h1>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400"
-              >
-                {darkMode ? '☀️' : '🌙'}
-              </button>
             </div>
           </div>
         </header>
 
-        {/* Área de Conversação */}
+        {/* Área de Conversação - MAIS ESPAÇO devido ao header reduzido */}
         <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-900">
           {conversation.length === 0 ? (
             <div className="flex items-center justify-center h-full">
@@ -501,75 +557,97 @@ function App() {
           )}
         </div>
 
-        {/* Input Sticky - LAYOT DEEPSEEK CORRETO */}
+        {/* Input Sticky - LAYOUT DEEPSEEK CORRETO */}
         <div className="sticky bottom-0 bg-gray-800 border-t border-gray-700">
           <div className="max-w-6xl mx-auto px-4 py-4">
-            <div className="bg-gray-800 border border-gray-600 rounded-lg">
-              <div className="flex flex-col lg:flex-row">
-                {/* Área Principal do Input */}
-                <div className="flex-1 p-4">
-                  {/* Configurações Compactas */}
-                  <div className="flex gap-3 mb-3 flex-wrap">
-                    <select 
-                      value={mode} 
-                      onChange={(e) => setMode(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="develop">💻 Desenvolver</option>
-                      <option value="ask">❓ Consultar</option>
-                    </select>
-                    
-                    <select 
-                      value={language} 
-                      onChange={(e) => setLanguage(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="python">🐍 Python</option>
-                      <option value="javascript">⚡ JavaScript</option>
-                      <option value="typescript">🔷 TypeScript</option>
-                      <option value="java">☕ Java</option>
-                    </select>
-
-                    {mode === 'develop' && (
-                      <select 
-                        value={framework} 
-                        onChange={(e) => setFramework(e.target.value)}
-                        className="px-3 py-2 text-sm border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Framework (opcional)</option>
-                        {availableFrameworks.map(fw => (
-                          <option key={fw} value={fw}>{fw}</option>
-                        ))}
-                      </select>
-                    )}
+            <div className="bg-gray-800 border border-gray-600 rounded-xl"> {/* Borda arredondada */}
+              <div className="flex flex-col lg:flex-row gap-4 p-4"> {/* Layout lado a lado */}
+                
+                {/* Coluna da Esquerda - Configurações */}
+                <div className="flex-1 space-y-4">
+                  {/* Modo Consultor */}
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isConsultor}
+                        onChange={(e) => setIsConsultor(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm font-medium text-gray-300">Modo Consultor</span>
+                    </label>
+                    <span className="text-xs text-gray-400">
+                      {isConsultor ? 'Apenas explicações teóricas' : 'Geração de código ativada'}
+                    </span>
                   </div>
 
-                  {/* Input e Botões */}
+                  {!isConsultor && (
+                    <>
+                      {/* Opções de Resposta */}
+                      <div className="flex flex-wrap gap-3">
+                        {RESPONSE_OPTIONS.map(option => (
+                          <label key={option.id} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={responseOptions[option.id]}
+                              onChange={() => toggleResponseOption(option.id)}
+                              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-300">
+                              {option.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Seleção de Linguagem */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Linguagem de Programação:
+                        </label>
+                        <select
+                          value={language}
+                          onChange={(e) => setLanguage(e.target.value)}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          {Object.entries(LANGUAGE_THEMES).map(([key, theme]) => (
+                            <option key={key} value={key}>
+                              {theme.icon} {theme.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Coluna da Direita - Input Principal */}
+                <div className="flex-1">
                   <div className="flex gap-3">
-                    <textarea
+                    <input
                       ref={inputRef}
                       value={instruction}
                       onChange={(e) => setInstruction(e.target.value)}
                       placeholder={
-                        mode === 'develop' 
-                          ? `Descreva o código que você precisa em ${LANGUAGE_THEMES[language]?.name}... (Ctrl+Enter para enviar)`
-                          : "Faça sua pergunta sobre programação... (Ctrl+Enter para enviar)"
+                        isConsultor 
+                          ? "Faça uma pergunta sobre programação ou peça uma explicação..."
+                          : "Descreva o código que você precisa..."
                       }
-                      rows="2"
                       disabled={loading}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
                           developCode();
                         }
                       }}
-                      className="flex-1 px-4 py-3 border border-gray-600 rounded bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                      className="flex-1 px-4 py-3 border border-gray-600 rounded-xl bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                     
                     <div className="flex flex-col gap-2">
                       {isGenerating ? (
                         <button 
                           onClick={stopGeneration}
-                          className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors text-sm"
+                          className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors text-sm"
                         >
                           ⏹️ Parar
                         </button>
@@ -577,7 +655,7 @@ function App() {
                         <button 
                           onClick={developCode}
                           disabled={!instruction.trim() || loading}
-                          className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded font-medium transition-colors disabled:cursor-not-allowed text-sm"
+                          className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-xl font-medium transition-colors disabled:cursor-not-allowed text-sm"
                         >
                           {loading ? (
                             <>
@@ -596,27 +674,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Opções de Resposta - MESMO FUNDO ESCURO */}
-                <div className="lg:w-64 bg-gray-800 lg:border-l border-gray-700 p-4 border-t lg:border-t-0">
-                  <div className="text-sm font-medium text-gray-300 mb-3">
-                    Incluir na resposta:
-                  </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
-                    {RESPONSE_OPTIONS.map(option => (
-                      <label key={option.id} className="flex items-center gap-2 cursor-pointer hover:text-blue-400 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={responseOptions[option.id]}
-                          onChange={() => toggleResponseOption(option.id)}
-                          className="w-4 h-4 text-blue-600 rounded border-gray-600 bg-gray-700 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-300">
-                          {option.name}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           </div>

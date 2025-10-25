@@ -17,13 +17,13 @@ export default {
     }
 
     try {
-      // Rota principal - health check (CORRIGIDO)
+      // Rota principal - health check
       if (pathname === '/' || pathname === '/api' || pathname === '/health') {
         return new Response(
           JSON.stringify({
             message: '🚀 SAAS Developer AI API - Cloudflare Workers',
             status: 'online',
-            endpoints: ['/api/develop', '/api/ask'],
+            endpoints: ['POST /', '/health'],
             timestamp: new Date().toISOString()
           }),
           { 
@@ -36,14 +36,9 @@ export default {
         );
       }
 
-      // Rota de desenvolvimento de código
-      if (pathname === '/api/develop' && request.method === 'POST') {
-        return await handleDevelop(request, env, corsHeaders);
-      }
-
-      // Rota de perguntas técnicas
-      if (pathname === '/api/ask' && request.method === 'POST') {
-        return await handleAsk(request, env, corsHeaders);
+      // Rota principal para chat (compatível com frontend atual)
+      if ((pathname === '/' || pathname === '/api/chat') && request.method === 'POST') {
+        return await handleChatRequest(request, env, corsHeaders);
       }
 
       // Rota não encontrada
@@ -59,7 +54,6 @@ export default {
       console.error('Error:', error);
       return new Response(
         JSON.stringify({ 
-          success: false, 
           error: error.message,
           type: 'server_error'
         }),
@@ -72,16 +66,16 @@ export default {
   }
 };
 
-// Função para gerar código
-async function handleDevelop(request, env, corsHeaders) {
+// Função principal para lidar com requests do chat
+async function handleChatRequest(request, env, corsHeaders) {
   try {
     const data = await request.json();
-    const { instruction, language = 'python', framework } = data;
+    const { message, options, language, isConsultor } = data;
 
     // Validar dados
-    if (!instruction || instruction.trim() === '') {
+    if (!message || message.trim() === '') {
       return new Response(
-        JSON.stringify({ success: false, error: 'Instruction is required' }),
+        JSON.stringify({ error: 'Message is required' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -89,37 +83,37 @@ async function handleDevelop(request, env, corsHeaders) {
       );
     }
 
-    console.log('📦 Recebido request para develop:', { language, framework, instructionLength: instruction.length });
+    console.log('📦 Recebido request:', { 
+      isConsultor, 
+      language, 
+      options,
+      messageLength: message.length 
+    });
 
-    const prompt = `Você é um expert em ${language}${framework ? ` e ${framework}` : ''}.
-
-Gere código baseado na seguinte instrução:
-
-INSTRUÇÃO: ${instruction}
-
-Forneça:
-1. Código completo, funcional e bem estruturado
-2. Explicação do que foi implementado
-3. Instruções de uso
-4. Possíveis melhorias
-
-Seja preciso e profissional.`;
-
+    // Construir prompt baseado nas opções e modo
+    const prompt = buildPrompt(message, options, language, isConsultor);
+    
     const messages = [
       {
         role: "system",
-        content: `Você é um desenvolvedor sênior especializado em ${language}${framework ? ` e ${framework}` : ''}. Gere código limpo e bem documentado.`
+        content: getSystemPrompt(isConsultor, language)
       },
       { role: "user", content: prompt }
     ];
 
-    const result = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
+    console.log('📤 Prompt construído:', prompt.substring(0, 200) + '...');
+
+    const responseText = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
     
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        result,
-        debug: { message: 'API call successful' }
+        response: responseText,
+        codeId: `#${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+        debug: { 
+          message: 'API call successful',
+          isConsultor: isConsultor,
+          language: language
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -127,12 +121,11 @@ Seja preciso e profissional.`;
     );
 
   } catch (error) {
-    console.error('❌ Erro em handleDevelop:', error);
+    console.error('❌ Erro em handleChatRequest:', error);
     return new Response(
       JSON.stringify({ 
-        success: false, 
         error: error.message,
-        debug: { type: 'develop_error', step: 'processing' }
+        debug: { type: 'chat_error', step: 'processing' }
       }),
       { 
         status: 500,
@@ -142,75 +135,92 @@ Seja preciso e profissional.`;
   }
 }
 
-// Função para responder perguntas
-async function handleAsk(request, env, corsHeaders) {
-  try {
-    const data = await request.json();
-    const { question, language } = data;
+// Função para construir prompt baseado nas opções
+function buildPrompt(userMessage, options, language, isConsultor) {
+  if (isConsultor) {
+    return `MODO CONSULTOR ATIVADO - APENAS EXPLICAÇÕES TEÓRICAS
 
-    // Validar dados
-    if (!question || question.trim() === '') {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Question is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+Solicitação: ${userMessage}
 
-    console.log('📦 Recebido request para ask:', { language, questionLength: question.length });
+REGRAS ESTRITAS:
+• Forneça APENAS explicações teóricas e conceituais
+• Códigos apenas como exemplos ilustrativos MUITO curtos (máximo 3-5 linhas)
+• NUNCA gere código completo ou funcional
+• Foque em conceitos, fundamentos e boas práticas
+• Seja didático e detalhista
+• Use analogias quando apropriado
+• Explique o "porquê" por trás dos conceitos
 
-    const prompt = `Você é um consultor técnico sênior.
-
-Responda a seguinte pergunta${language ? ` sobre ${language}` : ' sobre programação'}:
-
-PERGUNTA: ${question}
-
-Forneça uma resposta completa incluindo:
-1. Explicação clara e detalhada
-2. Exemplos práticos quando aplicável
-3. Casos de uso reais
-4. Melhores práticas
-5. Armadilhas comuns a evitar
-
-Seja didático e profissional.`;
-
-    const messages = [
-      {
-        role: "system",
-        content: "Você é um consultor técnico com vasta experiência em arquitetura de software e desenvolvimento."
-      },
-      { role: "user", content: prompt }
-    ];
-
-    const result = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        answer: result,
-        debug: { message: 'API call successful' }
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
-  } catch (error) {
-    console.error('❌ Erro em handleAsk:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message,
-        debug: { type: 'ask_error', step: 'processing' }
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+Responda em português de forma clara e educada.`;
   }
+
+  // Verificar se apenas código foi selecionado
+  const selectedOptions = Object.entries(options || {})
+    .filter(([_, selected]) => selected)
+    .map(([key]) => key);
+
+  // Se só código foi selecionado - APENAS CÓDIGO
+  if (selectedOptions.length === 1 && options.code) {
+    return `Gere APENAS o código ${language} para: ${userMessage}. 
+
+NÃO inclua:
+- Explicações
+- Instruções de uso 
+- Melhorias
+- Exemplos adicionais
+- Qualquer texto além do código
+
+Apenas o código puro e funcional.`;
+  }
+
+  // Se nenhuma opção selecionada, padrão para código apenas
+  if (selectedOptions.length === 0) {
+    return `Gere APENAS o código ${language} para: ${userMessage}. 
+
+NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
+  }
+
+  // Se múltiplas opções selecionadas
+  let prompt = `Instrução: ${userMessage}\n\n`;
+  
+  if (language) {
+    prompt += `Linguagem: ${language}\n\n`;
+  }
+  
+  prompt += `Forneça SOMENTE:\n`;
+
+  if (options.code) prompt += `• Código completo e funcional (em blocos de código)\n`;
+  if (options.explanation) prompt += `• Explicação detalhada do que foi implementado\n`;
+  if (options.usage) prompt += `• Instruções claras de como usar\n`;
+  if (options.improvements) prompt += `• Possíveis melhorias e extensões\n`;
+
+  // Adicionar instruções específicas para MQL5 e NTSL
+  if (language === 'mq5') {
+    prompt += `\nPARA MQL5: Gere código para MetaTrader 5 (Expert Advisor/Indicator) com a estrutura correta da plataforma. Inclua #property, inputs, e funções padrão como OnInit, OnTick, etc.`;
+  } else if (language === 'ntsl') {
+    prompt += `\nPARA NTSL: Gere código para ProfitChat (Nelogica) baseado em C++ com a sintaxe específica da plataforma.`;
+  }
+
+  prompt += `\n\nNÃO inclua nada além do que foi solicitado acima.`;
+
+  return prompt;
+}
+
+// Função para obter system prompt baseado no modo
+function getSystemPrompt(isConsultor, language) {
+  if (isConsultor) {
+    return "Você é um consultor técnico sênior especializado em programação. Forneça APENAS explicações teóricas e conceituais. Códigos apenas como exemplos curtos ilustrativos. Seja didático, detalhista e focado em fundamentos.";
+  }
+
+  if (language === 'mq5') {
+    return "Você é um desenvolvedor especialista em MQL5 para MetaTrader 5. Gere código limpo, bem estruturado e seguindo as convenções da plataforma. Inclua comentários relevantes.";
+  }
+
+  if (language === 'ntsl') {
+    return "Você é um desenvolvedor especialista em NTSL para ProfitChat da Nelogica. Gere código baseado em C++ seguindo a sintaxe específica da plataforma. Seja preciso e profissional.";
+  }
+
+  return "Você é um desenvolvedor sênior especializado em múltiplas linguagens de programação. Gere código limpo, bem documentado e funcional. Seja preciso e profissional.";
 }
 
 // Função para chamar a API DeepSeek

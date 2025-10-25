@@ -1,45 +1,126 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SAAS Developer AI</title>
+    <title>SAAS Developer AI - Assistente para MQL5 e NTSL</title>
+    <meta name="description" content="Assistente de IA especializado em MQL5, NTSL e desenvolvimento de código com modo consultor">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        colors: {
-          primary: {
-            50: '#f8fafc',
-            500: '#3b82f6', 
-            600: '#2563eb',
-            700: '#1d4ed8',
-          },
-          gray: {
-            50: '#f9fafb',
-            100: '#f3f4f6',
-            200: '#e5e7eb',
-            300: '#d1d5db',
-            400: '#9ca3af',
-            500: '#6b7280',
-            600: '#4b5563',
-            700: '#374151',
-            800: '#1f2937',
-            900: '#111827',
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: '#f8fafc',
+                500: '#3b82f6', 
+                600: '#2563eb',
+                700: '#1d4ed8',
+              },
+              gray: {
+                50: '#f9fafb',
+                100: '#f3f4f6',
+                200: '#e5e7eb',
+                300: '#d1d5db',
+                400: '#9ca3af',
+                500: '#6b7280',
+                600: '#4b5563',
+                700: '#374151',
+                800: '#1f2937',
+                900: '#111827',
+                950: '#0a0f1c',
+              }
+            },
+            animation: {
+              'bounce-slow': 'bounce 2s infinite',
+              'pulse-slow': 'pulse 3s infinite',
+            },
+            keyframes: {
+              bounce: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-5px)' },
+              }
+            }
           }
         }
       }
-    }
-  }
-</script>
+    </script>
+    
+    <style>
+      /* Garantir tema escuro por padrão e prevenir flash */
+      :root {
+        color-scheme: dark;
+      }
+      
+      /* Melhorar scrollbar no tema escuro */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #1f2937;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+      
+      /* Seleção de texto com cor personalizada */
+      ::selection {
+        background: #3b82f6;
+        color: white;
+      }
+      
+      /* Garantir que o body tenha fundo escuro */
+      body {
+        background-color: #111827;
+        color: #f3f4f6;
+      }
+      
+      /* Loading states customizados */
+      .loading-dots {
+        display: inline-flex;
+        gap: 4px;
+      }
+      
+      .loading-dots div {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #9ca3af;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+      
+      .loading-dots div:nth-child(1) { animation-delay: -0.32s; }
+      .loading-dots div:nth-child(2) { animation-delay: -0.16s; }
+    </style>
   </head>
-  <body>
+  <body class="bg-gray-900 text-gray-100 antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Script para garantir tema escuro persistente -->
+    <script>
+      // Forçar tema escuro e prevenir flash
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+      
+      // Garantir que localStorage também reflita tema escuro
+      localStorage.setItem('theme', 'dark');
+      
+      // Prevenir qualquer flash de tema claro durante o carregamento
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
   </body>
 </html>
