@@ -141,8 +141,7 @@ const Message = React.memo(({ message, onExplainCode }) => {
                     {block.content}
                   </div>
                 ) : (
-                  <CodeBlock key={block.id} block={block} onExplainCode={handleExplainCode}
-                  />
+                  <CodeBlock key={block.id} block={block} onExplainCode={onExplainCode} />
                 )
               )
             ) : (
@@ -276,7 +275,7 @@ function App() {
   // Salvar histórico no localStorage
   useEffect(() => {
     if (chatHistory.length > 0) {
-      localStorage.setItem('saas-developer-chats', JSON.stringify(chatHistory));
+      localStorage.setItem('saas-developer-chats', JSON.stringify(chats));
     }
   }, [chatHistory]);
 
@@ -289,7 +288,7 @@ function App() {
   };
 
   const toggleResponseOption = (optionId) => {
-    if (isConsultor) return; // Não permite alterar opções no modo consultor
+    if (isConsultor) return;
     setResponseOptions(prev => ({
       ...prev,
       [optionId]: !prev[optionId]
@@ -477,227 +476,249 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
   };
 
   return (
-  <div className="flex h-screen bg-[#151517] text-white">
-    {/* Sidebar */}
-    {sidebarOpen && (
-      <div className="w-64 bg-[#1B1B1C] border-r border-gray-800 flex flex-col">
-        <div className="p-3 border-b border-gray-800">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                🚀
+    <div className="flex h-screen bg-[#151517] text-white">
+      {/* Sidebar */}
+      {sidebarOpen && (
+        <div className="w-64 bg-[#1B1B1C] border-r border-gray-800 flex flex-col">
+          <div className="p-3 border-b border-gray-800">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  🚀
+                </div>
+                <span className="font-semibold text-sm">SAAS Developer</span>
               </div>
-              <span className="font-semibold text-sm">SAAS Developer</span>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-1 hover:bg-gray-800 rounded transition-colors text-gray-400"
+              >
+                ←
+              </button>
             </div>
+            
             <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1 hover:bg-gray-800 rounded transition-colors text-gray-400"
+              onClick={createNewChat}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm"
             >
-              ←
+              <span className="text-sm">+</span>
+              Novo Chat
             </button>
           </div>
           
-          <button
-            onClick={createNewChat}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm"
-          >
-            <span className="text-sm">+</span>
-            Novo Chat
-          </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto">
-          {chatHistory.map(chat => (
-            <div
-              key={chat.id}
-              onClick={() => selectChat(chat)}
-              className={`p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${
-                currentChat?.id === chat.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''
-              }`}
-            >
-              <div className="font-medium text-sm truncate">{chat.title}</div>
-              <div className="text-xs text-gray-400 mt-1">
-                {chat.messages.length} mensagens
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Área Principal */}
-    <div className="flex-1 flex flex-col min-w-0">
-      {/* Header REDUZIDO */}
-      <header className="bg-[#1B1B1C] border-b border-gray-800 px-6 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400"
+          <div className="flex-1 overflow-y-auto">
+            {chatHistory.map(chat => (
+              <div
+                key={chat.id}
+                onClick={() => selectChat(chat)}
+                className={`p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${
+                  currentChat?.id === chat.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''
+                }`}
               >
-                ☰
-              </button>
-            )}
-            <h1 className="text-lg font-semibold">
-              {currentChat ? currentChat.title : 'SAAS Developer AI'}
-            </h1>
+                <div className="font-medium text-sm truncate">{chat.title}</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {chat.messages.length} mensagens
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Área de Conversação - COR #151517 */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 bg-[#151517]">
-        {conversation.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center max-w-2xl">
-              <div className="text-6xl mb-4">🚀</div>
-              <h2 className="text-2xl font-bold mb-2">
-                SAAS Developer AI
-              </h2>
-              <p className="text-gray-400 text-lg">
-                Comece digitando uma instrução para gerar código...
-              </p>
+      {/* Área Principal */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header REDUZIDO */}
+        <header className="bg-[#1B1B1C] border-b border-gray-800 px-6 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400"
+                >
+                  ☰
+                </button>
+              )}
+              <h1 className="text-lg font-semibold">
+                {currentChat ? currentChat.title : 'SAAS Developer AI'}
+              </h1>
             </div>
           </div>
-        ) : (
-          <div className="max-w-4xl mx-auto space-y-8 pb-32">
-            {conversation.map((message) => (
-              <Message 
-                key={message.id} 
-                message={message} 
-                onExplainCode={handleExplainCode}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
+        </header>
 
-      {/* Input Sticky - LAYOUT CORRIGIDO */}
-      <div className="sticky bottom-0 bg-[#1B1B1C] border-t border-gray-800">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          
-          {/* Opções acima do input */}
-          <div className="mb-4 bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-3">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isConsultor}
-                  onChange={(e) => setIsConsultor(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-300">Modo Consultor</span>
-              </label>
-              <span className="text-xs text-gray-400">
-                {isConsultor ? 'Apenas explicações teóricas' : 'Geração de código ativada'}
-              </span>
-            </div>
-
-            <div className={`space-y-3 ${isConsultor ? 'opacity-50' : ''}`}>
-              {/* Opções de Resposta */}
-              <div className="flex flex-wrap gap-3">
-                {RESPONSE_OPTIONS.map(option => (
-                  <label 
-                    key={option.id} 
-                    className={`flex items-center space-x-2 cursor-pointer ${isConsultor ? 'cursor-not-allowed' : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={responseOptions[option.id]}
-                      onChange={() => toggleResponseOption(option.id)}
-                      disabled={isConsultor}
-                      className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
-                    />
-                    <span className={`text-sm ${isConsultor ? 'text-gray-500' : 'text-gray-300'}`}>
-                      {option.name}
-                    </span>
-                  </label>
-                ))}
+        {/* Área de Conversação - COR #151517 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 bg-[#151517]">
+          {conversation.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center max-w-2xl">
+                <div className="text-6xl mb-4">🚀</div>
+                <h2 className="text-2xl font-bold mb-2">
+                  SAAS Developer AI
+                </h2>
+                <p className="text-gray-400 text-lg">
+                  Comece digitando uma instrução para gerar código...
+                </p>
               </div>
-
-              {/* Seleção de Linguagem */}
-              {!isConsultor && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Linguagem de Programação:
-                  </label>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    disabled={isConsultor}
-                    className="w-full bg-[#2C2C2E] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-                  >
-                    {Object.entries(LANGUAGE_THEMES).map(([key, theme]) => (
-                      <option key={key} value={key}>
-                        {theme.icon} {theme.name}
-                      </option>
-                    ))}
-                  </select>
+            </div>
+          ) : (
+            <div className="max-w-4xl mx-auto space-y-8 pb-32">
+              {conversation.map((message) => (
+                <Message 
+                  key={message.id} 
+                  message={message} 
+                  onExplainCode={handleExplainCode}
+                />
+              ))}
+              
+              {/* Loading message com ícone do robô */}
+              {isGenerating && (
+                <div className="flex mb-6">
+                  <div className="flex items-start gap-3 max-w-4xl">
+                    <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0">
+                      🤖
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-gray-400 italic flex items-center gap-2">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        Digitando...
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Input Principal - Box separado com largura reduzida */}
-          <div className="bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
-            <div className="flex gap-3">
-              <input
-                ref={inputRef}
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                placeholder={
-                  isConsultor 
-                    ? "Faça uma pergunta sobre programação ou peça uma explicação..."
-                    : "Descreva o código que você precisa..."
-                }
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    developCode();
-                  }
-                }}
-                className="flex-1 max-w-[600px] px-4 py-3 border border-gray-600 rounded-lg bg-[#2C2C2E] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
               
-              <div className="flex flex-col gap-2">
-                {isGenerating ? (
-                  <button 
-                    onClick={stopGeneration}
-                    className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm"
-                  >
-                    ⏹️ Parar
-                  </button>
-                ) : (
-                  <button 
-                    onClick={developCode}
-                    disabled={!instruction.trim() || loading}
-                    className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Gerando...
-                      </>
-                    ) : (
-                      <>
-                        <span>🚀</span>
-                        Enviar
-                      </>
-                    )}
-                  </button>
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Sticky - LAYOUT CORRIGIDO E CENTRALIZADO */}
+        <div className="sticky bottom-0 bg-[#1B1B1C] border-t border-gray-800">
+          <div className="max-w-4xl mx-auto px-6 py-4">
+            
+            {/* Opções acima do input */}
+            <div className="mb-4 bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-3">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isConsultor}
+                    onChange={(e) => setIsConsultor(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-300">Modo Consultor</span>
+                </label>
+                <span className="text-xs text-gray-400">
+                  {isConsultor ? 'Apenas explicações teóricas' : 'Geração de código ativada'}
+                </span>
+              </div>
+
+              <div className={`space-y-3 ${isConsultor ? 'opacity-50' : ''}`}>
+                {/* Opções de Resposta */}
+                <div className="flex flex-wrap gap-3">
+                  {RESPONSE_OPTIONS.map(option => (
+                    <label 
+                      key={option.id} 
+                      className={`flex items-center space-x-2 cursor-pointer ${isConsultor ? 'cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={responseOptions[option.id]}
+                        onChange={() => toggleResponseOption(option.id)}
+                        disabled={isConsultor}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
+                      />
+                      <span className={`text-sm ${isConsultor ? 'text-gray-500' : 'text-gray-300'}`}>
+                        {option.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Seleção de Linguagem */}
+                {!isConsultor && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Linguagem de Programação:
+                    </label>
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      disabled={isConsultor}
+                      className="w-full bg-[#2C2C2E] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                    >
+                      {Object.entries(LANGUAGE_THEMES).map(([key, theme]) => (
+                        <option key={key} value={key}>
+                          {theme.icon} {theme.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
 
+            {/* Input Principal - Box separado com largura reduzida */}
+            <div className="bg-[#2C2C2E] rounded-lg p-4 max-w-4xl mx-auto">
+              <div className="flex gap-3">
+                <input
+                  ref={inputRef}
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder={
+                    isConsultor 
+                      ? "Faça uma pergunta sobre programação ou peça uma explicação..."
+                      : "Descreva o código que você precisa..."
+                  }
+                  disabled={loading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      developCode();
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-600 rounded-lg bg-[#2C2C2E] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                
+                <div className="flex flex-col gap-2">
+                  {isGenerating ? (
+                    <button 
+                      onClick={stopGeneration}
+                      className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm"
+                    >
+                      ⏹️ Parar
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={developCode}
+                      disabled={!instruction.trim() || loading}
+                      className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀</span>
+                          Enviar
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
 
 export default App;
