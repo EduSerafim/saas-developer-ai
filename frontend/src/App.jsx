@@ -141,7 +141,8 @@ const Message = React.memo(({ message, onExplainCode }) => {
                     {block.content}
                   </div>
                 ) : (
-                  <CodeBlock key={block.id} block={block} onExplainCode={onExplainCode} />
+                  <CodeBlock key={block.id} block={block} onExplainCode={handleExplainCode}
+                  />
                 )
               )
             ) : (
@@ -309,6 +310,7 @@ REGRAS ESTRITAS:
 • Foque em conceitos, fundamentos e boas práticas
 • Seja didático e detalhista
 • Use analogias quando apropriado
+• Explique o "porquê" por trás dos conceitos
 
 Responda em português de forma clara e educada.`;
     }
@@ -319,25 +321,40 @@ Responda em português de forma clara e educada.`;
 
     // Se só código foi selecionado - APENAS CÓDIGO
     if (selectedOptions.length === 1 && responseOptions.code) {
-      return `Gere APENAS o código ${language} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
+      return `Gere APENAS o código ${language} para: ${userInput}. 
+
+NÃO inclua:
+- Explicações
+- Instruções de uso 
+- Melhorias
+- Exemplos adicionais
+- Qualquer texto além do código
+
+Apenas o código puro e funcional.`;
     }
 
     // Se nenhuma opção selecionada, padrão para código
     if (selectedOptions.length === 0) {
-      return `Gere APENAS o código ${language} para: ${userInput}. \n\nNÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
+      return `Gere APENAS o código ${language} para: ${userInput}. 
+
+NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer texto adicional. Apenas o código puro.`;
     }
 
     // Se múltiplas opções selecionadas
     let prompt = `Instrução: ${userInput}\n\n`;
-    prompt += `Linguagem: ${language}\n\n`;
+    
+    if (language) {
+      prompt += `Linguagem: ${language}\n\n`;
+    }
+    
     prompt += `Forneça SOMENTE:\n`;
 
-    if (responseOptions.code) prompt += `• Código completo (em blocos de código)\n`;
-    if (responseOptions.explanation) prompt += `• Explicação do que foi implementado\n`;
-    if (responseOptions.usage) prompt += `• Instruções de como usar\n`;
+    if (responseOptions.code) prompt += `• Código completo e funcional (em blocos de código)\n`;
+    if (responseOptions.explanation) prompt += `• Explicação detalhada do que foi implementado\n`;
+    if (responseOptions.usage) prompt += `• Instruções claras de como usar\n`;
     if (responseOptions.improvements) prompt += `• Possíveis melhorias e extensões\n`;
 
-    prompt += `\nNÃO inclua nada além do que foi solicitado acima.`;
+    prompt += `\n\nNÃO inclua nada além do que foi solicitado acima.`;
 
     return prompt;
   };
@@ -460,11 +477,11 @@ Responda em português de forma clara e educada.`;
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className="flex h-screen bg-black text-white">
       {/* Sidebar */}
       {sidebarOpen && (
-        <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
-          <div className="p-3 border-b border-gray-700"> {/* Header reduzido */}
+        <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+          <div className="p-3 border-b border-gray-800">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-sm">
@@ -474,7 +491,7 @@ Responda em português de forma clara e educada.`;
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400"
+                className="p-1 hover:bg-gray-800 rounded transition-colors text-gray-400"
               >
                 ←
               </button>
@@ -494,8 +511,8 @@ Responda em português de forma clara e educada.`;
               <div
                 key={chat.id}
                 onClick={() => selectChat(chat)}
-                className={`p-3 border-b border-gray-700 cursor-pointer hover:bg-gray-750 transition-colors ${
-                  currentChat?.id === chat.id ? 'bg-gray-750 border-l-4 border-l-blue-500' : ''
+                className={`p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${
+                  currentChat?.id === chat.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''
                 }`}
               >
                 <div className="font-medium text-sm truncate">{chat.title}</div>
@@ -511,18 +528,18 @@ Responda em português de forma clara e educada.`;
       {/* Área Principal */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header REDUZIDO */}
-        <header className="bg-gray-800 border-b border-gray-700 px-6 py-2"> {/* Altura reduzida */}
+        <header className="bg-gray-900 border-b border-gray-800 px-6 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400"
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400"
                 >
                   ☰
                 </button>
               )}
-              <h1 className="text-lg font-semibold"> {/* Texto menor */}
+              <h1 className="text-lg font-semibold">
                 {currentChat ? currentChat.title : 'SAAS Developer AI'}
               </h1>
             </div>
@@ -530,7 +547,7 @@ Responda em português de forma clara e educada.`;
         </header>
 
         {/* Área de Conversação - MAIS ESPAÇO devido ao header reduzido */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-900">
+        <div className="flex-1 overflow-y-auto px-6 py-4 bg-black">
           {conversation.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center max-w-2xl">
@@ -557,125 +574,125 @@ Responda em português de forma clara e educada.`;
           )}
         </div>
 
-        {/* Input Sticky - LAYOUT DEEPSEEK CORRETO */}
-        <div className="sticky bottom-0 bg-gray-800 border-t border-gray-700">
-          <div className="max-w-6xl mx-auto px-4 py-4">
-            <div className="bg-gray-800 border border-gray-600 rounded-xl"> {/* Borda arredondada */}
-              <div className="flex flex-col lg:flex-row gap-4 p-4"> {/* Layout lado a lado */}
-                
-                {/* Coluna da Esquerda - Configurações */}
-                <div className="flex-1 space-y-4">
-                  {/* Modo Consultor */}
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center space-x-2 cursor-pointer">
+        {/* Input Sticky - LAYOUT CORRIGIDO */}
+        <div className="sticky bottom-0 bg-gray-900 border-t border-gray-800">
+          <div className="max-w-6xl mx-auto px-6 py-4"> {/* Espaçamento lateral aumentado */}
+            
+            {/* Opções acima do input */}
+            <div className="mb-4 bg-gray-800 rounded-lg p-4"> {/* Box separado para opções */}
+              <div className="flex items-center justify-between mb-3">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isConsultor}
+                    onChange={(e) => setIsConsultor(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-300">Modo Consultor</span>
+                </label>
+                <span className="text-xs text-gray-400">
+                  {isConsultor ? 'Apenas explicações teóricas' : 'Geração de código ativada'}
+                </span>
+              </div>
+
+              <div className={`space-y-3 ${isConsultor ? 'opacity-50' : ''}`}>
+                {/* Opções de Resposta */}
+                <div className="flex flex-wrap gap-3">
+                  {RESPONSE_OPTIONS.map(option => (
+                    <label 
+                      key={option.id} 
+                      className={`flex items-center space-x-2 cursor-pointer ${isConsultor ? 'cursor-not-allowed' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        checked={isConsultor}
-                        onChange={(e) => setIsConsultor(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                        checked={responseOptions[option.id]}
+                        onChange={() => toggleResponseOption(option.id)}
+                        disabled={isConsultor}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50"
                       />
-                      <span className="text-sm font-medium text-gray-300">Modo Consultor</span>
+                      <span className={`text-sm ${isConsultor ? 'text-gray-500' : 'text-gray-300'}`}>
+                        {option.name}
+                      </span>
                     </label>
-                    <span className="text-xs text-gray-400">
-                      {isConsultor ? 'Apenas explicações teóricas' : 'Geração de código ativada'}
-                    </span>
-                  </div>
-
-                  {!isConsultor && (
-                    <>
-                      {/* Opções de Resposta */}
-                      <div className="flex flex-wrap gap-3">
-                        {RESPONSE_OPTIONS.map(option => (
-                          <label key={option.id} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={responseOptions[option.id]}
-                              onChange={() => toggleResponseOption(option.id)}
-                              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                            />
-                            <span className="text-sm text-gray-300">
-                              {option.name}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-
-                      {/* Seleção de Linguagem */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Linguagem de Programação:
-                        </label>
-                        <select
-                          value={language}
-                          onChange={(e) => setLanguage(e.target.value)}
-                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          {Object.entries(LANGUAGE_THEMES).map(([key, theme]) => (
-                            <option key={key} value={key}>
-                              {theme.icon} {theme.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
+                  ))}
                 </div>
 
-                {/* Coluna da Direita - Input Principal */}
-                <div className="flex-1">
-                  <div className="flex gap-3">
-                    <input
-                      ref={inputRef}
-                      value={instruction}
-                      onChange={(e) => setInstruction(e.target.value)}
-                      placeholder={
-                        isConsultor 
-                          ? "Faça uma pergunta sobre programação ou peça uma explicação..."
-                          : "Descreva o código que você precisa..."
-                      }
-                      disabled={loading}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          developCode();
-                        }
-                      }}
-                      className="flex-1 px-4 py-3 border border-gray-600 rounded-xl bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                    
-                    <div className="flex flex-col gap-2">
-                      {isGenerating ? (
-                        <button 
-                          onClick={stopGeneration}
-                          className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors text-sm"
-                        >
-                          ⏹️ Parar
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={developCode}
-                          disabled={!instruction.trim() || loading}
-                          className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-xl font-medium transition-colors disabled:cursor-not-allowed text-sm"
-                        >
-                          {loading ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              Gerando...
-                            </>
-                          ) : (
-                            <>
-                              <span>🚀</span>
-                              Enviar
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
+                {/* Seleção de Linguagem */}
+                {!isConsultor && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Linguagem de Programação:
+                    </label>
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      disabled={isConsultor}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                    >
+                      {Object.entries(LANGUAGE_THEMES).map(([key, theme]) => (
+                        <option key={key} value={key}>
+                          {theme.icon} {theme.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-
+                )}
               </div>
             </div>
+
+            {/* Input Principal - Box separado */}
+            <div className="bg-gray-800 rounded-lg p-4"> {/* Box do input */}
+              <div className="flex gap-3">
+                <input
+                  ref={inputRef}
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder={
+                    isConsultor 
+                      ? "Faça uma pergunta sobre programação ou peça uma explicação..."
+                      : "Descreva o código que você precisa..."
+                  }
+                  disabled={loading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      developCode();
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-600 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                
+                <div className="flex flex-col gap-2">
+                  {isGenerating ? (
+                    <button 
+                      onClick={stopGeneration}
+                      className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm"
+                    >
+                      ⏹️ Parar
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={developCode}
+                      disabled={!instruction.trim() || loading}
+                      className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀</span>
+                          Enviar
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
