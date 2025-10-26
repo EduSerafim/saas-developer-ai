@@ -240,6 +240,49 @@ const highlightSyntax = (code, language) => {
   return code;
 };
 
+// ===== FUNÇÕES DE HISTÓRICO =====
+const loadChatHistory = () => {
+  try {
+    const saved = localStorage.getItem('saas-developer-chat-history');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error);
+  }
+  return [];
+};
+
+const saveChatHistory = (chats) => {
+  try {
+    localStorage.setItem('saas-developer-chat-history', JSON.stringify(chats));
+  } catch (error) {
+    console.error('Erro ao salvar histórico:', error);
+  }
+};
+
+const generateChatTitle = (firstMessage) => {
+  const message = firstMessage.content || firstMessage;
+  const truncated = message.length > 30 ? message.substring(0, 30) + '...' : message;
+  return truncated;
+};
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Agora mesmo';
+  if (diffMins < 60) return `${diffMins} min atrás`;
+  if (diffHours < 24) return `${diffHours} h atrás`;
+  if (diffDays < 7) return `${diffDays} d atrás`;
+  
+  return date.toLocaleDateString('pt-BR');
+};
+
 // ===== COMPONENTE PRINCIPAL =====
 function App() {
   const [conversation, setConversation] = useState([]);
@@ -266,16 +309,20 @@ function App() {
 
   // Carregar histórico do localStorage
   useEffect(() => {
-    const savedHistory = localStorage.getItem('saas-developer-chats');
-    if (savedHistory) {
-      setChatHistory(JSON.parse(savedHistory));
+    const history = loadChatHistory();
+    setChatHistory(history);
+    
+    // Se houver chats, carregar o mais recente
+    if (history.length > 0) {
+      setCurrentChat(history[0]);
+      setConversation(history[0].messages || []);
     }
   }, []);
 
-  // Salvar histórico no localStorage
+  // Salvar histórico no localStorage quando mudar
   useEffect(() => {
     if (chatHistory.length > 0) {
-      localStorage.setItem('saas-developer-chats', JSON.stringify(chats));
+      saveChatHistory(chatHistory);
     }
   }, [chatHistory]);
 
@@ -359,98 +406,125 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
   };
 
   const developCode = async () => {
-  if (!instruction.trim()) return;
+    if (!instruction.trim()) return;
 
-  setLoading(true);
-  setIsGenerating(true);
-  setInstruction(''); // Limpa o input imediatamente
-  
-  const userMessage = {
-    type: 'user',
-    content: instruction.trim(),
-    language: isConsultor ? null : language,
-    isConsultor: isConsultor,
-    timestamp: new Date(),
-    id: Date.now().toString()
-  };
-  
-  const updatedConversation = [...conversation, userMessage];
-  setConversation(updatedConversation);
-  
-  const controller = new AbortController();
-  setAbortController(controller);
-
-  try {
-    const prompt = buildPrompt(userMessage.content, userMessage.language);
+    setLoading(true);
+    setIsGenerating(true);
     
-    console.log('📤 Enviando prompt:', prompt);
-    
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: prompt,
-        options: responseOptions,
-        language: isConsultor ? null : language,
-        isConsultor: isConsultor
-      }),
-      signal: controller.signal
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    console.log('✅ Resposta completa:', data);
-    
-    // ⚠️ CORREÇÃO CRÍTICA: Extrair o conteúdo correto da resposta
-    const responseContent = data.response || data.answer || data.result || 
-                           (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
-                           'Resposta não disponível';
-
-    console.log('📝 Conteúdo extraído:', responseContent);
-
-    const assistantMessage = {
-      type: 'assistant',
-      content: responseContent,
-      blocks: extractCodeBlocks(responseContent),
-      timestamp: new Date(),
-      id: (Date.now() + 1).toString()
-    };
-    
-    setConversation(prev => [...prev, assistantMessage]);
-    
-    // Atualizar histórico
-    if (currentChat) {
-      setChatHistory(prev => prev.map(chat => 
-        chat.id === currentChat.id 
-          ? { ...chat, messages: [...updatedConversation, assistantMessage] }
-          : chat
-      ));
-    }
-    
-  } catch (error) {
-    console.error('Erro na requisição:', error);
-    
-    const errorMessage = {
-      type: 'error',
-      content: error.name === 'AbortError' 
-        ? '⏹️ Geração interrompida pelo usuário.'
-        : `❌ Erro: ${error.message}`,
+    const userMessage = {
+      type: 'user',
+      content: instruction.trim(),
+      language: isConsultor ? null : language,
+      isConsultor: isConsultor,
       timestamp: new Date(),
       id: Date.now().toString()
     };
     
-    setConversation(prev => [...prev, errorMessage]);
-  } finally {
-    setLoading(false);
-    setIsGenerating(false);
-    setAbortController(null);
-  }
-};
+    const updatedConversation = [...conversation, userMessage];
+    setConversation(updatedConversation);
+    
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    try {
+      const prompt = buildPrompt(userMessage.content, userMessage.language);
+      
+      console.log('📤 Enviando prompt:', prompt);
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: prompt,
+          options: responseOptions,
+          language: isConsultor ? null : language,
+          isConsultor: isConsultor
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      console.log('✅ Resposta completa:', data);
+      
+      // ⚠️ CORREÇÃO CRÍTICA: Extrair o conteúdo correto da resposta
+      const responseContent = data.response || data.answer || data.result || 
+                             (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+                             'Resposta não disponível';
+
+      console.log('📝 Conteúdo extraído:', responseContent);
+
+      const assistantMessage = {
+        type: 'assistant',
+        content: responseContent,
+        blocks: extractCodeBlocks(responseContent),
+        timestamp: new Date(),
+        id: (Date.now() + 1).toString()
+      };
+      
+      const finalConversation = [...updatedConversation, assistantMessage];
+      setConversation(finalConversation);
+      
+      // ATUALIZAR HISTÓRICO - CORREÇÃO CRÍTICA
+      let updatedHistory;
+      
+      if (currentChat) {
+        // Atualizar chat existente
+        updatedHistory = chatHistory.map(chat => 
+          chat.id === currentChat.id 
+            ? { 
+                ...chat, 
+                messages: finalConversation,
+                updatedAt: new Date().toISOString(),
+                messageCount: finalConversation.length
+              }
+            : chat
+        );
+      } else {
+        // Criar novo chat
+        const newChat = {
+          id: Date.now().toString(),
+          title: generateChatTitle(userMessage),
+          messages: finalConversation,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messageCount: finalConversation.length,
+          language: language,
+          isConsultor: isConsultor
+        };
+        
+        updatedHistory = [newChat, ...chatHistory];
+        setCurrentChat(newChat);
+      }
+      
+      setChatHistory(updatedHistory);
+      saveChatHistory(updatedHistory);
+      
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      
+      const errorMessage = {
+        type: 'error',
+        content: error.name === 'AbortError' 
+          ? '⏹️ Geração interrompida pelo usuário.'
+          : `❌ Erro: ${error.message}`,
+        timestamp: new Date(),
+        id: Date.now().toString()
+      };
+      
+      setConversation(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+      setIsGenerating(false);
+      setInstruction('');
+      setAbortController(null);
+    }
+  };
 
   const stopGeneration = () => {
     if (abortController) {
@@ -465,7 +539,11 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
       id: Date.now().toString(),
       title: 'Novo Chat',
       messages: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messageCount: 0,
+      language: language,
+      isConsultor: isConsultor
     };
     
     setCurrentChat(newChat);
@@ -477,7 +555,27 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
 
   const selectChat = (chat) => {
     setCurrentChat(chat);
-    setConversation(chat.messages);
+    setConversation(chat.messages || []);
+    setLanguage(chat.language || 'python');
+    setIsConsultor(chat.isConsultor || false);
+    inputRef.current?.focus();
+  };
+
+  const deleteChat = (chatId, e) => {
+    e.stopPropagation();
+    
+    const updatedHistory = chatHistory.filter(chat => chat.id !== chatId);
+    setChatHistory(updatedHistory);
+    saveChatHistory(updatedHistory);
+    
+    // Se o chat atual foi deletado, criar novo
+    if (currentChat && currentChat.id === chatId) {
+      if (updatedHistory.length > 0) {
+        selectChat(updatedHistory[0]);
+      } else {
+        createNewChat();
+      }
+    }
   };
 
   const handleExplainCode = (codeId) => {
@@ -517,20 +615,59 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
           </div>
           
           <div className="flex-1 overflow-y-auto">
-            {chatHistory.map(chat => (
-              <div
-                key={chat.id}
-                onClick={() => selectChat(chat)}
-                className={`p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${
-                  currentChat?.id === chat.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''
-                }`}
-              >
-                <div className="font-medium text-sm truncate">{chat.title}</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {chat.messages.length} mensagens
+            {chatHistory.length === 0 ? (
+              <div className="p-4 text-center text-gray-400 text-sm">
+                Nenhum chat ainda
+                <div className="mt-2 text-xs">
+                  Comece uma nova conversa!
                 </div>
               </div>
-            ))}
+            ) : (
+              chatHistory.map(chat => (
+                <div
+                  key={chat.id}
+                  onClick={() => selectChat(chat)}
+                  className={`p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors group relative ${
+                    currentChat?.id === chat.id ? 'bg-gray-800 border-l-4 border-l-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="font-medium text-sm truncate flex-1 pr-6">
+                      {chat.title}
+                    </div>
+                    <button
+                      onClick={(e) => deleteChat(chat.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600 rounded text-xs text-gray-400 hover:text-white transition-all"
+                      title="Deletar chat"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-gray-400">
+                    <span>
+                      {chat.messageCount || 0} mensagens
+                    </span>
+                    <span>
+                      {formatDate(chat.updatedAt || chat.createdAt)}
+                    </span>
+                  </div>
+                  {chat.language && (
+                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                      <span>{LANGUAGE_THEMES[chat.language]?.icon}</span>
+                      <span>{chat.isConsultor ? 'Modo Consultor' : LANGUAGE_THEMES[chat.language]?.name}</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer da Sidebar */}
+          <div className="p-3 border-t border-gray-800 text-xs text-gray-400">
+            <div className="flex justify-between">
+              <span>{chatHistory.length} chats</span>
+              <span>v1.3</span>
+            </div>
           </div>
         </div>
       )}
@@ -553,6 +690,11 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
                 {currentChat ? currentChat.title : 'SAAS Developer AI'}
               </h1>
             </div>
+            {currentChat && (
+              <div className="text-sm text-gray-400">
+                {currentChat.messageCount || 0} mensagens
+              </div>
+            )}
           </div>
         </header>
 
@@ -566,8 +708,16 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
                   SAAS Developer AI
                 </h2>
                 <p className="text-gray-400 text-lg">
-                  Comece digitando uma instrução para gerar código...
+                  {chatHistory.length === 0 
+                    ? 'Comece digitando uma instrução para gerar código...' 
+                    : 'Digite uma instrução para começar este chat...'
+                  }
                 </p>
+                {chatHistory.length > 0 && (
+                  <p className="text-gray-500 text-sm mt-2">
+                    Ou selecione outro chat no menu lateral
+                  </p>
+                )}
               </div>
             </div>
           ) : (
