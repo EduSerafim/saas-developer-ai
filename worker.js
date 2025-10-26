@@ -1,17 +1,6 @@
-// Cloudflare Worker - Backend do SAAS Developer AI
+// Cloudflare Worker - Backend do SAAS Developer AI (CORRIGIDO)
 export default {
   async fetch(request, env) {
-     // ⚠️ DEBUG DA API KEY - ADICIONE ESTAS LINHAS (LINHAS 3-9)
-    console.log('🔍🔍🔍 DEBUG DO ENVIRONMENT:');
-    console.log('API Key exists?:', !!env.DEEPSEEK_API_KEY);
-    console.log('API Key type:', typeof env.DEEPSEEK_API_KEY);
-    console.log('API Key length:', env.DEEPSEEK_API_KEY?.length);
-    console.log('API Key first 10 chars:', env.DEEPSEEK_API_KEY?.substring(0, 10));
-    console.log('All env keys:', Object.keys(env));
-    const url = new URL(request.url);
-    const pathname = url.pathname;
-    
-    // Headers CORS para permitir requests do frontend
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -23,58 +12,47 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    try {
-      // Rota principal - health check
-      if (pathname === '/' || pathname === '/health') {
-        return new Response(
-          JSON.stringify({
-            message: '🚀 SAAS Developer AI API - Cloudflare Workers',
-            status: 'online',
-            timestamp: new Date().toISOString()
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json' 
-            }
-          }
-        );
-      }
+    // ⚠️ CORREÇÃO CRÍTICA: Verificar método POST PRIMEIRO
+    if (request.method === 'POST') {
+      return await handleChatRequest(request, env, corsHeaders);
+    }
 
-      // Rota principal para chat
-      if (request.method === 'POST') {
-        return await handleChatRequest(request, env, corsHeaders);
-      }
-
-      // Rota não encontrada
+    // Health check apenas para GET
+    if (request.method === 'GET') {
       return new Response(
-        JSON.stringify({ error: 'Endpoint not found' }),
-        { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-
-    } catch (error) {
-      console.error('Error:', error);
-      return new Response(
-        JSON.stringify({ 
-          error: error.message,
-          type: 'server_error'
+        JSON.stringify({
+          message: '🚀 SAAS Developer AI API - Cloudflare Workers',
+          status: 'online',
+          timestamp: new Date().toISOString()
         }),
         { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: 200,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }
         }
       );
     }
+
+    // Rota não encontrada
+    return new Response(
+      JSON.stringify({ error: 'Método não permitido' }),
+      { 
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 };
 
 // Função principal para lidar com requests do chat
 async function handleChatRequest(request, env, corsHeaders) {
   try {
+    // ⚠️ DEBUG: Verificar se API Key está carregada
+    console.log('🔑 API Key carregada?:', !!env.DEEPSEEK_API_KEY);
+    console.log('🔑 API Key tamanho:', env.DEEPSEEK_API_KEY?.length);
+    
     const data = await request.json();
     const { message, options, language, isConsultor } = data;
 
@@ -90,9 +68,9 @@ async function handleChatRequest(request, env, corsHeaders) {
     }
 
     console.log('📦 Recebido request:', { 
-      isConsultor, 
+      message: message.substring(0, 50) + '...',
       language, 
-      messageLength: message.length 
+      isConsultor 
     });
 
     // Construir prompt baseado nas opções e modo
@@ -106,27 +84,23 @@ async function handleChatRequest(request, env, corsHeaders) {
       { role: "user", content: prompt }
     ];
 
-    console.log('📤 Prompt construído:', prompt.substring(0, 200) + '...');
+    console.log('📤 Prompt construído');
 
     const responseText = await callDeepSeekAPI(messages, env.DEEPSEEK_API_KEY);
 
-    // ⚠️ VERIFICAÇÃO CRÍTICA DA RESPOSTA
-    console.log('🤖 Resposta da DeepSeek (primeiros 500 chars):', responseText?.substring(0, 500));
+    // ⚠️ VERIFICAÇÃO MELHORADA
+    console.log('🤖 Resposta DeepSeek recebida, tamanho:', responseText?.length);
     
-    if (!responseText || responseText.trim() === '') {
+    if (!responseText || typeof responseText !== 'string' || responseText.trim() === '') {
+      console.error('❌ Resposta vazia da API DeepSeek');
       throw new Error('Resposta vazia da API DeepSeek');
     }
 
     return new Response(
       JSON.stringify({ 
-        response: responseText, // ⚠️ GARANTIDO: campo 'response'
+        response: responseText,
         codeId: `#${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-        debug: { 
-          message: 'API call successful',
-          isConsultor: isConsultor,
-          language: language,
-          responseLength: responseText.length
-        }
+        success: true
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -134,11 +108,12 @@ async function handleChatRequest(request, env, corsHeaders) {
     );
 
   } catch (error) {
-    console.error('❌ Erro em handleChatRequest:', error);
+    console.error('❌ Erro em handleChatRequest:', error.message);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        debug: { type: 'chat_error', step: 'processing' }
+        response: `❌ Erro: ${error.message}`,
+        success: false
       }),
       { 
         status: 500,
@@ -231,22 +206,18 @@ function getSystemPrompt(isConsultor, language) {
 
 // Função para chamar a API DeepSeek
 async function callDeepSeekAPI(messages, apiKey) {
-  console.log('🔑 Verificando API Key...');
+  console.log('🔑 Iniciando chamada para DeepSeek...');
   
   // Verificar se a API Key está configurada
-  if (!apiKey || apiKey === 'sua_chave_aqui') {
-    throw new Error('API Key da DeepSeek não configurada. Configure a variável DEEPSEEK_API_KEY no Cloudflare.');
-  }
-
-  // Verificar formato da API Key (deve começar com sk-)
-  if (!apiKey.startsWith('sk-')) {
-    throw new Error('Formato inválido da API Key. Deve começar com "sk-". Verifique sua chave DeepSeek.');
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'sua_chave_aqui') {
+    console.error('❌ API Key inválida ou não configurada');
+    throw new Error('API Key da DeepSeek não configurada. Verifique a variável DEEPSEEK_API_KEY no Cloudflare.');
   }
 
   console.log('🌐 Chamando API DeepSeek...');
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -267,13 +238,13 @@ async function callDeepSeekAPI(messages, apiKey) {
 
     clearTimeout(timeoutId);
 
-    console.log(`📡 Status da resposta: ${response.status}`);
+    console.log(`📡 Status da resposta DeepSeek: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Erro da API:', errorText);
+      console.error('❌ Erro da API DeepSeek:', errorText);
       
-      let errorMessage = `DeepSeek API error: ${response.status}`;
+      let errorMessage = `Erro DeepSeek: ${response.status}`;
       
       if (response.status === 401) {
         errorMessage = 'API Key inválida ou expirada. Verifique sua chave DeepSeek.';
@@ -287,10 +258,11 @@ async function callDeepSeekAPI(messages, apiKey) {
     }
 
     const data = await response.json();
-    console.log('✅ Resposta da API recebida com sucesso');
+    console.log('✅ Resposta DeepSeek recebida com sucesso');
     
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Resposta inválida da API DeepSeek - estrutura incorreta');
+      console.error('❌ Estrutura inválida da resposta:', data);
+      throw new Error('Resposta inválida da API DeepSeek');
     }
 
     const responseContent = data.choices[0].message.content;
@@ -308,6 +280,7 @@ async function callDeepSeekAPI(messages, apiKey) {
       throw new Error('Timeout: A requisição levou mais de 30 segundos. Tente novamente.');
     }
     
+    console.error('💥 Erro na chamada DeepSeek:', error);
     throw error;
   }
 }
