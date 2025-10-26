@@ -1,6 +1,13 @@
 // Cloudflare Worker - Backend do SAAS Developer AI
 export default {
   async fetch(request, env) {
+     // ⚠️ DEBUG DA API KEY - ADICIONE ESTAS LINHAS (LINHAS 3-9)
+    console.log('🔍🔍🔍 DEBUG DO ENVIRONMENT:');
+    console.log('API Key exists?:', !!env.DEEPSEEK_API_KEY);
+    console.log('API Key type:', typeof env.DEEPSEEK_API_KEY);
+    console.log('API Key length:', env.DEEPSEEK_API_KEY?.length);
+    console.log('API Key first 10 chars:', env.DEEPSEEK_API_KEY?.substring(0, 10));
+    console.log('All env keys:', Object.keys(env));
     const url = new URL(request.url);
     const pathname = url.pathname;
     
