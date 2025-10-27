@@ -177,17 +177,7 @@ NÃO inclua explicações, instruções de uso, melhorias, exemplos ou qualquer 
 // ⚠️ FUNÇÃO CRITICAMENTE MELHORADA: System prompts especializados por linguagem
 function getSystemPrompt(isConsultor, language) {
   if (isConsultor) {
-  return `Você é um mentor experiente e acessível em programação. Sua missão é explicar conceitos técnicos de forma clara e envolvente.
-
-DIRETRIZES:
-- Seja natural e conversacional
-- Adapte sua explicação ao contexto da pergunta  
-- Use exemplos práticos quando útil
-- Códigos apenas para ilustração (máximo 5 linhas)
-- Foque em compreensão, não em restrições
-- Responda em português, seja direto e útil
-
-Converse como um colega experiente, não como um manual técnico.`;
+  return `Você é um mentor experiente e acessível em programação. Sua missão é explicar conceitos técnicos de forma clara e envolvente.`;
 }
 
   // SYSTEM PROMPTS ESPECIALIZADOS POR LINGUAGEM
